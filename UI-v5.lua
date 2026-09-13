@@ -242,6 +242,7 @@ local tabGap = 3
 
 local tabs = {}
 local pages = {}
+local tabAPIs = {}
 local tabButtons = {}
 local tabIndices = {}
 local tabPageTweens = {}
@@ -983,7 +984,7 @@ function Library:CreateTab(name)
 	end
 
 	if pages[name] then
-		return pages[name]._API
+		return tabAPIs[name]
 	end
 
 	table.insert(tabs, name)
@@ -1143,7 +1144,7 @@ function Library:CreateTab(name)
 		return sectionAPI
 	end
 
-	page._API = tabAPI
+	tabAPIs[name] = tabAPI
 
 	if #tabs == 1 then
 		SetTab(name)
