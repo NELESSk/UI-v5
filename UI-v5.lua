@@ -207,7 +207,7 @@ local top = New("Frame", {
 
 local title = Label(
 	top,
-	"UI-v5 Developer : (discord) @nelessk",
+	"",
 	UDim2.new(1, -16, 1, 0),
 	C.Text
 )
@@ -458,7 +458,7 @@ local function Section(parent, titleText, height)
 
 	local sectionTitle = Label(
 		section,
-		titleText or "section",
+		titleText or "",
 		UDim2.new(1, -10, 0, 20),
 		C.Text
 	)
