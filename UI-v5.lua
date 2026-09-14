@@ -369,7 +369,7 @@ pcall(function()
 end)
 
 local Library = {}
-Library.Version = "5.0.4-clean"
+Library.Version = "5.0.5-clean"
 RuntimeEnvironment.__UI_V5_RUNTIME = Library
 
 local main = New("CanvasGroup", {
@@ -2085,8 +2085,10 @@ local function AddColorPicker(parent, y, text, defaultColor, callback)
 		local draggingSV = false
 		local draggingHue = false
 
-		local function Refresh(fire)
-			currentColor = Color3.fromHSV(h, s, v)
+		local function Refresh(fire, rebuildColor)
+			if rebuildColor ~= false then
+				currentColor = Color3.fromHSV(h, s, v)
+			end
 
 			preview.BackgroundColor3 = currentColor
 			swatch.BackgroundColor3 = currentColor
@@ -2130,7 +2132,7 @@ local function AddColorPicker(parent, y, text, defaultColor, callback)
 				1
 			)
 
-			Refresh(true)
+			Refresh(true, true)
 		end
 
 		local function UpdateHue(position)
@@ -2143,7 +2145,7 @@ local function AddColorPicker(parent, y, text, defaultColor, callback)
 				1
 			)
 
-			Refresh(true)
+			Refresh(true, true)
 		end
 
 		LocalTrack(svInput.InputBegan:Connect(function(input)
@@ -2251,13 +2253,13 @@ local function AddColorPicker(parent, y, text, defaultColor, callback)
 			if parsed then
 				SetColor(parsed, false)
 				h, s, v = parsed:ToHSV()
-				Refresh(true)
+				Refresh(true, false)
 			else
 				hexBox.Text = ToHex(currentColor)
 			end
 		end))
 
-		Refresh(false)
+		Refresh(false, false)
 	end
 
 	Track(preview.MouseButton1Click:Connect(Open))
