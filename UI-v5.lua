@@ -369,8 +369,223 @@ pcall(function()
 end)
 
 local Library = {}
-Library.Version = "5.0.6-clean"
+Library.Version = "5.0.7-clean"
 RuntimeEnvironment.__UI_V5_RUNTIME = Library
+
+local cursorGui = New("ScreenGui", {
+	Name = "UI-v5-Cursor",
+	Parent = guiParent,
+	ResetOnSpawn = false,
+	IgnoreGuiInset = true,
+	DisplayOrder = 2147483647,
+	ZIndexBehavior = Enum.ZIndexBehavior.Global,
+})
+
+pcall(function()
+	cursorGui.OnTopOfCoreBlur = true
+end)
+
+local customCursorEnabled = true
+local customCursorGuiOpen = true
+local cursorColor = C.Accent
+local cursorLightColor = C.AccentLight
+
+local cursorRoot = New("Frame", {
+	Name = "CustomCursor",
+	Parent = cursorGui,
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.fromOffset(0, 0),
+	Size = UDim2.fromOffset(28, 42),
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	Visible = true,
+	ZIndex = 1000000,
+})
+
+local cursorScale = New("UIScale", {
+	Parent = cursorRoot,
+	Scale = 1,
+})
+
+local cursorShaft = New("Frame", {
+	Parent = cursorRoot,
+	Position = UDim2.fromOffset(9, 5),
+	Size = UDim2.fromOffset(10, 25),
+	BackgroundColor3 = cursorColor,
+	BorderSizePixel = 0,
+	ZIndex = 1000001,
+})
+Corner(cursorShaft, 6)
+
+local cursorShaftStroke = New("UIStroke", {
+	Parent = cursorShaft,
+	Color = cursorLightColor,
+	Thickness = 1,
+	Transparency = 0.18,
+	ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+})
+
+local cursorShaftGradient = New("UIGradient", {
+	Parent = cursorShaft,
+	Rotation = 90,
+	Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, cursorLightColor),
+		ColorSequenceKeypoint.new(0.48, cursorColor),
+		ColorSequenceKeypoint.new(1, C.AccentDark),
+	}),
+})
+
+local cursorTip = New("Frame", {
+	Parent = cursorRoot,
+	Position = UDim2.fromOffset(8, 0),
+	Size = UDim2.fromOffset(12, 11),
+	BackgroundColor3 = cursorLightColor,
+	BorderSizePixel = 0,
+	ZIndex = 1000002,
+})
+Corner(cursorTip, 7)
+
+local cursorTipStroke = New("UIStroke", {
+	Parent = cursorTip,
+	Color = cursorLightColor,
+	Thickness = 1,
+	Transparency = 0.12,
+	ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+})
+
+local cursorLeft = New("Frame", {
+	Parent = cursorRoot,
+	Position = UDim2.fromOffset(2, 27),
+	Size = UDim2.fromOffset(13, 13),
+	BackgroundColor3 = cursorColor,
+	BorderSizePixel = 0,
+	ZIndex = 1000001,
+})
+Corner(cursorLeft, 7)
+
+local cursorRight = New("Frame", {
+	Parent = cursorRoot,
+	Position = UDim2.fromOffset(13, 27),
+	Size = UDim2.fromOffset(13, 13),
+	BackgroundColor3 = cursorColor,
+	BorderSizePixel = 0,
+	ZIndex = 1000001,
+})
+Corner(cursorRight, 7)
+
+local cursorLeftStroke = New("UIStroke", {
+	Parent = cursorLeft,
+	Color = cursorLightColor,
+	Thickness = 1,
+	Transparency = 0.22,
+	ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+})
+
+local cursorRightStroke = New("UIStroke", {
+	Parent = cursorRight,
+	Color = cursorLightColor,
+	Thickness = 1,
+	Transparency = 0.22,
+	ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+})
+
+local function RefreshCustomCursorColors()
+	cursorShaft.BackgroundColor3 = cursorColor
+	cursorTip.BackgroundColor3 = cursorLightColor
+	cursorLeft.BackgroundColor3 = cursorColor
+	cursorRight.BackgroundColor3 = cursorColor
+
+	cursorShaftStroke.Color = cursorLightColor
+	cursorTipStroke.Color = cursorLightColor
+	cursorLeftStroke.Color = cursorLightColor
+	cursorRightStroke.Color = cursorLightColor
+
+	cursorShaftGradient.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, cursorLightColor),
+		ColorSequenceKeypoint.new(0.48, cursorColor),
+		ColorSequenceKeypoint.new(1, C.AccentDark),
+	})
+end
+
+local function RefreshCustomCursorVisibility()
+	local show =
+		customCursorEnabled
+		and customCursorGuiOpen
+		and not unloaded
+
+	cursorRoot.Visible = show
+
+	pcall(function()
+		UserInputService.MouseIconEnabled = not show
+	end)
+end
+
+Track(RunService.RenderStepped:Connect(function()
+	if unloaded or not cursorRoot.Parent then
+		return
+	end
+
+	if cursorRoot.Visible then
+		local mousePosition = UserInputService:GetMouseLocation()
+
+		cursorRoot.Position = UDim2.fromOffset(
+			mousePosition.X,
+			mousePosition.Y
+		)
+	end
+end))
+
+Track(UserInputService.InputBegan:Connect(function(input)
+	if not cursorRoot.Visible then
+		return
+	end
+
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		Tween(cursorScale, {
+			Scale = 0.88,
+		}, 0.06)
+	end
+end))
+
+Track(UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		Tween(cursorScale, {
+			Scale = 1,
+		}, 0.08)
+	end
+end))
+
+function Library:SetCustomCursorVisible(state)
+	customCursorEnabled = state == true
+	RefreshCustomCursorVisibility()
+end
+
+function Library:GetCustomCursorVisible()
+	return customCursorEnabled
+end
+
+function Library:SetCustomCursorColor(color, lightColor)
+	if typeof(color) ~= "Color3" then
+		return false
+	end
+
+	cursorColor = color
+
+	if typeof(lightColor) == "Color3" then
+		cursorLightColor = lightColor
+	else
+		cursorLightColor = color:Lerp(
+			Color3.new(1, 1, 1),
+			0.28
+		)
+	end
+
+	RefreshCustomCursorColors()
+	return true
+end
+
+RefreshCustomCursorColors()
+RefreshCustomCursorVisibility()
 
 local main = New("CanvasGroup", {
 	Name = "Main",
@@ -3955,6 +4170,9 @@ local function SetVisible(state)
 	end
 
 	opened = state
+	customCursorGuiOpen = state
+	RefreshCustomCursorVisibility()
+
 	visibilityToken += 1
 
 	local token = visibilityToken
@@ -4056,11 +4274,22 @@ function Library:Unload()
 	unloaded = true
 	CloseTransientPopups()
 
+	customCursorGuiOpen = false
+	RefreshCustomCursorVisibility()
+
+	pcall(function()
+		UserInputService.MouseIconEnabled = true
+	end)
+
 	pcall(function()
 		watermarkGradientTween:Cancel()
 	end)
 
 	DisconnectAll()
+
+	if cursorGui and cursorGui.Parent then
+		cursorGui:Destroy()
+	end
 
 	if gui and gui.Parent then
 		gui:Destroy()
