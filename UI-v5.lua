@@ -2315,87 +2315,87 @@ local function AddDropdown(parent, y, text, options, default, callback)
 end
 
 local function AddButton(parent, y, text, callback)
-\tlocal button = New("TextButton", {
-\t\tParent = parent,
-\t\tPosition = UDim2.fromOffset(0, y),
-\t\tSize = UDim2.new(1, 0, 0, 24),
-\t\tBackgroundColor3 = Color3.fromRGB(20, 19, 22),
-\t\tBorderSizePixel = 0,
-\t\tAutoButtonColor = false,
-\t\tText = tostring(text or "Button"),
-\t\tTextColor3 = C.Text,
-\t\tTextSize = 12,
-\t\tFont = FONT,
-\t})
-\tStroke(button, C.BorderSoft, 0.46)
-\tCorner(button, 3)
+	local button = New("TextButton", {
+		Parent = parent,
+		Position = UDim2.fromOffset(0, y),
+		Size = UDim2.new(1, 0, 0, 24),
+		BackgroundColor3 = Color3.fromRGB(20, 19, 22),
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Text = tostring(text or "Button"),
+		TextColor3 = C.Text,
+		TextSize = 12,
+		Font = FONT,
+	})
+	Stroke(button, C.BorderSoft, 0.46)
+	Corner(button, 3)
 
-\tTrack(button.MouseEnter:Connect(function()
-\t\tTween(button, {BackgroundColor3 = C.PanelHover}, MOTION.Fast)
-\tend))
+	Track(button.MouseEnter:Connect(function()
+		Tween(button, {BackgroundColor3 = C.PanelHover}, MOTION.Fast)
+	end))
 
-\tTrack(button.MouseLeave:Connect(function()
-\t\tTween(button, {BackgroundColor3 = Color3.fromRGB(20, 19, 22)}, MOTION.Hover)
-\tend))
+	Track(button.MouseLeave:Connect(function()
+		Tween(button, {BackgroundColor3 = Color3.fromRGB(20, 19, 22)}, MOTION.Hover)
+	end))
 
-\tTrack(button.MouseButton1Click:Connect(function()
-\t\tif callback then
-\t\t\tcallback()
-\t\tend
-\tend))
+	Track(button.MouseButton1Click:Connect(function()
+		if callback then
+			callback()
+		end
+	end))
 
-\treturn button
+	return button
 end
 
 local function AddInput(parent, y, text, default, callback)
-\tlocal label = Label(parent, text or "", UDim2.new(1, 0, 0, 16), C.Text)
-\tlabel.Position = UDim2.fromOffset(0, y)
+	local label = Label(parent, text or "", UDim2.new(1, 0, 0, 16), C.Text)
+	label.Position = UDim2.fromOffset(0, y)
 
-\tlocal box = New("TextBox", {
-\t\tParent = parent,
-\t\tPosition = UDim2.fromOffset(0, y + 19),
-\t\tSize = UDim2.new(1, 0, 0, 21),
-\t\tBackgroundColor3 = Color3.fromRGB(13, 13, 14),
-\t\tBorderSizePixel = 0,
-\t\tClearTextOnFocus = false,
-\t\tText = tostring(default or ""),
-\t\tTextColor3 = C.Text,
-\t\tPlaceholderColor3 = C.Dim,
-\t\tTextSize = 12,
-\t\tFont = FONT,
-\t\tTextXAlignment = Enum.TextXAlignment.Left,
-\t})
-\tStroke(box, C.BorderSoft, 0.50)
-\tCorner(box, 3)
+	local box = New("TextBox", {
+		Parent = parent,
+		Position = UDim2.fromOffset(0, y + 19),
+		Size = UDim2.new(1, 0, 0, 21),
+		BackgroundColor3 = Color3.fromRGB(13, 13, 14),
+		BorderSizePixel = 0,
+		ClearTextOnFocus = false,
+		Text = tostring(default or ""),
+		TextColor3 = C.Text,
+		PlaceholderColor3 = C.Dim,
+		TextSize = 12,
+		Font = FONT,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	})
+	Stroke(box, C.BorderSoft, 0.50)
+	Corner(box, 3)
 
-\tNew("UIPadding", {
-\t\tParent = box,
-\t\tPaddingLeft = UDim.new(0, 6),
-\t\tPaddingRight = UDim.new(0, 6),
-\t})
+	New("UIPadding", {
+		Parent = box,
+		PaddingLeft = UDim.new(0, 6),
+		PaddingRight = UDim.new(0, 6),
+	})
 
-\tlocal current = tostring(default or "")
+	local current = tostring(default or "")
 
-\tTrack(box.FocusLost:Connect(function()
-\t\tcurrent = box.Text
-\t\tif callback then
-\t\t\tcallback(current)
-\t\tend
-\tend))
+	Track(box.FocusLost:Connect(function()
+		current = box.Text
+		if callback then
+			callback(current)
+		end
+	end))
 
-\treturn {
-\t\tGet = function()
-\t\t\treturn current
-\t\tend,
-\t\tSet = function(value)
-\t\t\tcurrent = tostring(value or "")
-\t\t\tbox.Text = current
-\t\t\tif callback then
-\t\t\t\tcallback(current)
-\t\t\tend
-\t\tend,
-\t\tBox = box,
-\t}
+	return {
+		Get = function()
+			return current
+		end,
+		Set = function(value)
+			current = tostring(value or "")
+			box.Text = current
+			if callback then
+				callback(current)
+			end
+		end,
+		Box = box,
+	}
 end
 
 function Library:CreateTab(name)
