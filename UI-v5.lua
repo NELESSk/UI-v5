@@ -1582,7 +1582,7 @@ local top = New("Frame", {
 	BorderSizePixel = 0,
 })
 
-local title = Label(top, "UI-v5 Developer : (discord) @nelessk", UDim2.new(1, -16, 1, 0), C.Text)
+local title = Label(top, "Rat.Lua | Aftermath", UDim2.new(1, -16, 1, 0), C.Text)
 title.Position = UDim2.fromOffset(8, 0)
 title.TextSize = 13
 
@@ -1604,6 +1604,15 @@ local tabBar = New("Frame", {
 })
 
 local tabs = {"visuals", "combat", "character", "misc", "config"}
+
+local tabDisplayNames = {
+	visuals = "Visuals",
+	combat = "Combat",
+	character = "Movement",
+	misc = "World",
+	config = "Config",
+}
+
 local pages = {}
 local tabButtons = {}
 
@@ -1823,7 +1832,7 @@ for i, name in ipairs(tabs) do
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
 
-		Text = name,
+		Text = tabDisplayNames[name] or name,
 		TextColor3 = C.Muted,
 		TextSize = 14,
 		Font = FONT,
@@ -4236,18 +4245,216 @@ do
 end
 
 
-local function Placeholder(page, name)
-	local sec, body = Section(page, name, 120)
+do
+	local page = pages.combat
 
-	local text = Label(body, "add your controls here", UDim2.new(1, 0, 0, 20), C.Muted)
-	text.Position = UDim2.fromOffset(0, 4)
+	local leftColumn = New("ScrollingFrame", {
+		Parent = page,
+		Size = UDim2.new(0.5, -4, 1, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 2,
+		ScrollBarImageColor3 = Color3.fromRGB(92, 67, 98),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		CanvasSize = UDim2.fromOffset(0, 0),
+	})
 
-	AddKeybind(body, 34, "bind", nil, "Toggle")
+	local rightColumn = New("ScrollingFrame", {
+		Parent = page,
+		Position = UDim2.new(0.5, 4, 0, 0),
+		Size = UDim2.new(0.5, -4, 1, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 2,
+		ScrollBarImageColor3 = Color3.fromRGB(92, 67, 98),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		CanvasSize = UDim2.fromOffset(0, 0),
+	})
+
+	AddList(leftColumn, 6)
+	AddList(rightColumn, 6)
+
+	do
+		local sec, body = Section(leftColumn, "aim", 315)
+
+		AddToggle(body, 0, "enabled", false)
+		AddSlider(body, 24, "fov", 0, 500, 120)
+		AddSlider(body, 67, "smoothness", 0, 100, 25)
+		AddDropdown(body, 110, "aim part", {"head", "upper torso", "lower torso"}, "head")
+		AddDropdown(body, 153, "priority", {"distance", "fov", "health"}, "fov")
+		AddColorPicker(body, 196, "fov color", Color3.fromRGB(178, 112, 187))
+		AddKeybind(body, 225, "aim bind", Enum.KeyCode.F, "Hold")
+	end
+
+	do
+		local sec, body = Section(leftColumn, "target", 220)
+
+		AddToggle(body, 0, "visible check", true)
+		AddToggle(body, 24, "team check", true)
+		AddToggle(body, 48, "distance check", false)
+		AddSlider(body, 76, "max distance", 100, 5000, 1500)
+		AddDropdown(body, 119, "target mode", {"single", "closest", "cycle"}, "closest")
+	end
+
+	do
+		local sec, body = Section(rightColumn, "weapon", 270)
+
+		AddToggle(body, 0, "enabled", false)
+		AddToggle(body, 24, "no spread", false)
+		AddToggle(body, 48, "no recoil", false)
+		AddSlider(body, 76, "fire rate", 1, 1000, 600)
+		AddSlider(body, 119, "recoil scale", 0, 100, 0)
+		AddDropdown(body, 162, "mode", {"default", "fast", "custom"}, "default")
+		AddKeybind(body, 205, "weapon bind", Enum.KeyCode.T, "Toggle")
+	end
+
+	do
+		local sec, body = Section(rightColumn, "hitbox", 220)
+
+		AddToggle(body, 0, "enabled", false)
+		AddSlider(body, 24, "size", 1, 20, 5)
+		AddDropdown(body, 67, "part", {"head", "torso", "all"}, "head")
+		AddColorPicker(body, 110, "color", Color3.fromRGB(255, 90, 110))
+		AddKeybind(body, 139, "bind", Enum.KeyCode.H, "Toggle")
+	end
 end
 
-Placeholder(pages.combat, "combat")
-Placeholder(pages.character, "character")
-Placeholder(pages.misc, "misc")
+do
+	local page = pages.character
+
+	local leftColumn = New("ScrollingFrame", {
+		Parent = page,
+		Size = UDim2.new(0.5, -4, 1, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 2,
+		ScrollBarImageColor3 = Color3.fromRGB(92, 67, 98),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		CanvasSize = UDim2.fromOffset(0, 0),
+	})
+
+	local rightColumn = New("ScrollingFrame", {
+		Parent = page,
+		Position = UDim2.new(0.5, 4, 0, 0),
+		Size = UDim2.new(0.5, -4, 1, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 2,
+		ScrollBarImageColor3 = Color3.fromRGB(92, 67, 98),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		CanvasSize = UDim2.fromOffset(0, 0),
+	})
+
+	AddList(leftColumn, 6)
+	AddList(rightColumn, 6)
+
+	do
+		local sec, body = Section(leftColumn, "speed", 205)
+
+		AddToggle(body, 0, "enabled", false)
+		AddSlider(body, 24, "speed", 1, 200, 25)
+		AddDropdown(body, 67, "mode", {"walkspeed", "velocity", "cframe"}, "walkspeed")
+		AddKeybind(body, 110, "speed bind", Enum.KeyCode.X, "Toggle")
+	end
+
+	do
+		local sec, body = Section(leftColumn, "jump", 175)
+
+		AddToggle(body, 0, "enabled", false)
+		AddSlider(body, 24, "jump power", 1, 200, 50)
+		AddKeybind(body, 67, "jump bind", Enum.KeyCode.Space, "Hold")
+	end
+
+	do
+		local sec, body = Section(rightColumn, "fly", 220)
+
+		AddToggle(body, 0, "enabled", false)
+		AddSlider(body, 24, "fly speed", 1, 300, 50)
+		AddDropdown(body, 67, "mode", {"camera", "character", "velocity"}, "camera")
+		AddKeybind(body, 110, "fly bind", Enum.KeyCode.H, "Toggle")
+	end
+
+	do
+		local sec, body = Section(rightColumn, "player", 195)
+
+		AddToggle(body, 0, "noclip", false)
+		AddToggle(body, 24, "auto jump", false)
+		AddToggle(body, 48, "spin", false)
+		AddSlider(body, 76, "spin speed", 0, 100, 20)
+	end
+end
+
+do
+	local page = pages.misc
+
+	local leftColumn = New("ScrollingFrame", {
+		Parent = page,
+		Size = UDim2.new(0.5, -4, 1, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 2,
+		ScrollBarImageColor3 = Color3.fromRGB(92, 67, 98),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		CanvasSize = UDim2.fromOffset(0, 0),
+	})
+
+	local rightColumn = New("ScrollingFrame", {
+		Parent = page,
+		Position = UDim2.new(0.5, 4, 0, 0),
+		Size = UDim2.new(0.5, -4, 1, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 2,
+		ScrollBarImageColor3 = Color3.fromRGB(92, 67, 98),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		CanvasSize = UDim2.fromOffset(0, 0),
+	})
+
+	AddList(leftColumn, 6)
+	AddList(rightColumn, 6)
+
+	do
+		local sec, body = Section(leftColumn, "world", 280)
+
+		AddToggle(body, 0, "fullbright", false)
+		AddSlider(body, 24, "brightness", 0, 10, 3)
+		AddToggle(body, 67, "clock time", false)
+		AddSlider(body, 91, "time", 0, 24, 12)
+		AddToggle(body, 134, "fog", false)
+		AddSlider(body, 158, "fog density", 0, 1, 0.35)
+		AddColorPicker(body, 201, "ambient", Color3.fromRGB(90, 90, 100))
+		AddColorPicker(body, 230, "outdoor ambient", Color3.fromRGB(90, 90, 100))
+	end
+
+	do
+		local sec, body = Section(leftColumn, "camera", 190)
+
+		AddToggle(body, 0, "fov changer", false)
+		AddSlider(body, 24, "fov", 30, 120, 70)
+		AddToggle(body, 67, "zoom", false)
+		AddKeybind(body, 95, "zoom bind", Enum.KeyCode.N, "Hold")
+	end
+
+	do
+		local sec, body = Section(rightColumn, "crosshair", 300)
+
+		AddToggle(body, 0, "enabled", false)
+		AddColorPicker(body, 25, "color", Color3.fromRGB(255, 255, 255))
+		AddSlider(body, 50, "gap", 0, 50, 5)
+		AddSlider(body, 93, "length", 1, 100, 15)
+		AddSlider(body, 136, "width", 1, 10, 2)
+		AddSlider(body, 179, "spin speed", 0, 20, 0)
+		AddDropdown(body, 222, "animation", {"none", "spin", "pulse"}, "none")
+	end
+
+	do
+		local sec, body = Section(rightColumn, "misc", 170)
+
+		AddToggle(body, 0, "notifications", true)
+		AddDropdown(body, 24, "notification side", {"right", "left"}, "right")
+		AddKeybind(body, 67, "menu bind", Enum.KeyCode.RightShift, "Toggle")
+	end
+end
 
 
 
@@ -5350,6 +5557,6 @@ TweenService:Create(
 	}
 ):Play()
 
-SetTab("visuals")
+SetTab("combat")
 
 return Library
