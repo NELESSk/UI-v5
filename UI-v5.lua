@@ -3029,6 +3029,15 @@ function Library:SetWatermarkVisible(state)
 	end
 end
 
+local function MeasureText(text, textSize, maxWidth)
+	return TextService:GetTextSize(
+		tostring(text or ""),
+		textSize or 13,
+		FONT,
+		Vector2.new(maxWidth or 1000, 1000)
+	)
+end
+
 local notificationRoot = New("Frame", {
 	Name = "Notifications",
 	Parent = gui,
