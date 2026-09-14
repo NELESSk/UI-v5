@@ -3069,87 +3069,148 @@ local function SetWatermarkOrbitPosition(alpha)
 		+ bottom + arc
 		+ left + arc
 
+	if perimeter <= 0 then
+		return
+	end
+
 	local d = (alpha % 1) * perimeter
-	local x, y, rotation
+	local x = 0
+	local y = 0
+	local rotation = 0
 
 	if d <= top then
 		x = r + d
 		y = 0
 		rotation = 0
-		goto apply
+
+	else
+		d -= top
+
+		if d <= arc then
+			local t = d / arc
+			local theta =
+				(-math.pi / 2)
+				+ (t * math.pi / 2)
+
+			x =
+				(w - r)
+				+ (r * math.cos(theta))
+
+			y =
+				r
+				+ (r * math.sin(theta))
+
+			rotation =
+				math.deg(
+					theta + (math.pi / 2)
+				)
+
+		else
+			d -= arc
+
+			if d <= right then
+				x = w
+				y = r + d
+				rotation = 90
+
+			else
+				d -= right
+
+				if d <= arc then
+					local t = d / arc
+					local theta =
+						t * math.pi / 2
+
+					x =
+						(w - r)
+						+ (r * math.cos(theta))
+
+					y =
+						(h - r)
+						+ (r * math.sin(theta))
+
+					rotation =
+						math.deg(
+							theta + (math.pi / 2)
+						)
+
+				else
+					d -= arc
+
+					if d <= bottom then
+						x = (w - r) - d
+						y = h
+						rotation = 180
+
+					else
+						d -= bottom
+
+						if d <= arc then
+							local t = d / arc
+							local theta =
+								(math.pi / 2)
+								+ (t * math.pi / 2)
+
+							x =
+								r
+								+ (r * math.cos(theta))
+
+							y =
+								(h - r)
+								+ (r * math.sin(theta))
+
+							rotation =
+								math.deg(
+									theta + (math.pi / 2)
+								)
+
+						else
+							d -= arc
+
+							if d <= left then
+								x = 0
+								y = (h - r) - d
+								rotation = 270
+
+							else
+								d -= left
+
+								local t =
+									math.clamp(
+										d / arc,
+										0,
+										1
+									)
+
+								local theta =
+									math.pi
+									+ (t * math.pi / 2)
+
+								x =
+									r
+									+ (r * math.cos(theta))
+
+								y =
+									r
+									+ (r * math.sin(theta))
+
+								rotation =
+									math.deg(
+										theta + (math.pi / 2)
+									)
+							end
+						end
+					end
+				end
+			end
+		end
 	end
-	d -= top
 
-	if d <= arc then
-		local t = d / arc
-		local theta = (-math.pi / 2) + (t * math.pi / 2)
+	watermarkOrbitBeam.Position =
+		UDim2.fromOffset(x, y)
 
-		x = (w - r) + (r * math.cos(theta))
-		y = r + (r * math.sin(theta))
-		rotation = math.deg(theta + (math.pi / 2))
-		goto apply
-	end
-	d -= arc
-
-	if d <= right then
-		x = w
-		y = r + d
-		rotation = 90
-		goto apply
-	end
-	d -= right
-
-	if d <= arc then
-		local t = d / arc
-		local theta = t * math.pi / 2
-
-		x = (w - r) + (r * math.cos(theta))
-		y = (h - r) + (r * math.sin(theta))
-		rotation = math.deg(theta + (math.pi / 2))
-		goto apply
-	end
-	d -= arc
-
-	if d <= bottom then
-		x = (w - r) - d
-		y = h
-		rotation = 180
-		goto apply
-	end
-	d -= bottom
-
-	if d <= arc then
-		local t = d / arc
-		local theta = (math.pi / 2) + (t * math.pi / 2)
-
-		x = r + (r * math.cos(theta))
-		y = (h - r) + (r * math.sin(theta))
-		rotation = math.deg(theta + (math.pi / 2))
-		goto apply
-	end
-	d -= arc
-
-	if d <= left then
-		x = 0
-		y = (h - r) - d
-		rotation = 270
-		goto apply
-	end
-	d -= left
-
-	do
-		local t = d / arc
-		local theta = math.pi + (t * math.pi / 2)
-
-		x = r + (r * math.cos(theta))
-		y = r + (r * math.sin(theta))
-		rotation = math.deg(theta + (math.pi / 2))
-	end
-
-	::apply::
-
-	watermarkOrbitBeam.Position = UDim2.fromOffset(x, y)
-	watermarkOrbitBeam.Rotation = rotation
+	watermarkOrbitBeam.Rotation =
+		rotation
 end
 
 Track(RunService.RenderStepped:Connect(function()
