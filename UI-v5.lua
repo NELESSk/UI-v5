@@ -1274,7 +1274,7 @@ function Library:Notify(data, duration)
 		Parent = card,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromOffset(6, 0),
-		Size = UDim2.fromOffset(22, 4),
+		Size = UDim2.fromOffset(18, 3),
 		BackgroundColor3 = Color3.fromRGB(236, 164, 246),
 		BorderSizePixel = 0,
 		Rotation = 0,
@@ -1301,7 +1301,7 @@ function Library:Notify(data, duration)
 	local function SetBeamOnTopPath(distance)
 		local w = cardWidth
 		local h = cardHeight
-		local r = math.min(6, w * 0.12, h * 0.35)
+		local r = math.min(10, w * 0.16, h * 0.42)
 
 		local sideLength = math.max(0, h - r)
 		local topLength = math.max(0, w - (2 * r))
@@ -1327,36 +1327,45 @@ function Library:Notify(data, duration)
 			rotation = 270
 			return x, y, rotation, pathLength
 		end
+
 		d -= sideLength
 
 		if d <= arcLength then
 			local t = d / arcLength
-			local theta = math.pi - (t * math.pi / 2)
+			local smoothT = t * t * (3 - (2 * t))
+			local theta = math.pi - (smoothT * math.pi / 2)
 
 			x = r + (r * math.cos(theta))
 			y = r + (r * math.sin(theta))
-			rotation = math.deg(theta + (math.pi / 2))
+			rotation = 270 + (smoothT * 90)
+
 			return x, y, rotation, pathLength
 		end
+
 		d -= arcLength
 
 		if d <= topLength then
 			x = r + d
 			y = 0
 			rotation = 0
+
 			return x, y, rotation, pathLength
 		end
+
 		d -= topLength
 
 		if d <= arcLength then
 			local t = d / arcLength
-			local theta = (-math.pi / 2) + (t * math.pi / 2)
+			local smoothT = t * t * (3 - (2 * t))
+			local theta = (-math.pi / 2) + (smoothT * math.pi / 2)
 
 			x = (w - r) + (r * math.cos(theta))
 			y = r + (r * math.sin(theta))
-			rotation = math.deg(theta + (math.pi / 2))
+			rotation = smoothT * 90
+
 			return x, y, rotation, pathLength
 		end
+
 		d -= arcLength
 
 		x = w
@@ -1517,17 +1526,26 @@ function Library:Notify(data, duration)
 
 		local hideTween = Tween(card, {
 			GroupTransparency = 1,
-			Position = UDim2.new(1, 20, 0, 0),
-		}, 0.11)
+			Position = UDim2.new(1, 24, 0, 0),
+		}, 0.13)
+
+		local function RemoveNotification()
+			if holder and holder.Parent then
+				holder.Visible = false
+				holder:Destroy()
+			end
+		end
 
 		if hideTween then
 			hideTween.Completed:Connect(function()
-				if holder and holder.Parent then
-					holder:Destroy()
-				end
+				RemoveNotification()
+			end)
+
+			task.delay(0.18, function()
+				RemoveNotification()
 			end)
 		else
-			holder:Destroy()
+			RemoveNotification()
 		end
 	end)
 
@@ -1675,21 +1693,22 @@ local function CloseTransientPopups()
 	end
 end
 
-local function SetTab(name)
-	if not pages[name] then
-		return
-	end
+local tabSwitchToken = 0
 
-	if currentTab == name then
+local function SetTab(name)
+	if not pages[name] or currentTab == name then
 		return
 	end
 
 	CloseTransientPopups()
 
-	local previousTab = currentTab
+	tabSwitchToken += 1
+	local token = tabSwitchToken
+
 	currentTab = name
 
 	local index = tabIndices[name]
+
 	if index then
 		local targetX = (index - 1) * (tabWidth + tabGap)
 
@@ -1697,10 +1716,14 @@ local function SetTab(name)
 			tabIndicatorTween:Cancel()
 		end
 
+		if tabIndicatorGlowTween then
+			tabIndicatorGlowTween:Cancel()
+		end
+
 		tabIndicatorTween = TweenService:Create(
 			tabIndicator,
 			TweenInfo.new(
-				0.20,
+				0.17,
 				Enum.EasingStyle.Quart,
 				Enum.EasingDirection.Out
 			),
@@ -1710,16 +1733,10 @@ local function SetTab(name)
 			}
 		)
 
-		tabIndicatorTween:Play()
-
-		if tabIndicatorGlowTween then
-			tabIndicatorGlowTween:Cancel()
-		end
-
 		tabIndicatorGlowTween = TweenService:Create(
 			tabIndicatorGlow,
 			TweenInfo.new(
-				0.22,
+				0.19,
 				Enum.EasingStyle.Quart,
 				Enum.EasingDirection.Out
 			),
@@ -1728,6 +1745,8 @@ local function SetTab(name)
 				Size = UDim2.fromOffset(tabWidth, 3),
 			}
 		)
+
+		tabIndicatorTween:Play()
 		tabIndicatorGlowTween:Play()
 	end
 
@@ -1742,82 +1761,63 @@ local function SetTab(name)
 			TextColor3 = selected
 				and C.Text
 				or C.Muted,
-		}, 0.16)
+		}, 0.13)
 	end
 
-	if previousTab and previousTab ~= name and pages[previousTab] then
-		local oldPage = pages[previousTab]
+	for tabName, page in pairs(pages) do
+		local oldTween = tabPageTweens[tabName]
 
-		if tabPageTweens[previousTab] then
-			tabPageTweens[previousTab]:Cancel()
-			tabPageTweens[previousTab] = nil
+		if oldTween then
+			oldTween:Cancel()
+			tabPageTweens[tabName] = nil
 		end
 
-		local fadeOut = TweenService:Create(
-			oldPage,
-			TweenInfo.new(
-				0.10,
-				Enum.EasingStyle.Quart,
-				Enum.EasingDirection.Out
-			),
-			{
-				GroupTransparency = 1,
-				Position = UDim2.fromOffset(4, 61),
-			}
-		)
-
-		tabPageTweens[previousTab] = fadeOut
-		fadeOut:Play()
-
-		fadeOut.Completed:Connect(function(playbackState)
-			if tabPageTweens[previousTab] == fadeOut then
-				tabPageTweens[previousTab] = nil
-			end
-			if playbackState == Enum.PlaybackState.Completed
-				and currentTab ~= previousTab
-				and oldPage.Parent then
-
-				oldPage.Visible = false
-				oldPage.Position = UDim2.fromOffset(7, 61)
-			end
-		end)
+		if tabName ~= name then
+			page.Visible = false
+			page.GroupTransparency = 1
+			page.Position = UDim2.fromOffset(7, 61)
+		end
 	end
 
 	local nextPage = pages[name]
-	nextPage.Visible = true
-	nextPage.GroupTransparency = previousTab and 1 or 0
-	nextPage.Position = previousTab
-		and UDim2.fromOffset(10, 61)
-		or UDim2.fromOffset(7, 61)
 
-	if previousTab then
-		if tabPageTweens[name] then
-			tabPageTweens[name]:Cancel()
+	nextPage.Visible = true
+	nextPage.GroupTransparency = 1
+	nextPage.Position = UDim2.fromOffset(11, 61)
+
+	local fadeIn = TweenService:Create(
+		nextPage,
+		TweenInfo.new(
+			0.15,
+			Enum.EasingStyle.Quart,
+			Enum.EasingDirection.Out
+		),
+		{
+			GroupTransparency = 0,
+			Position = UDim2.fromOffset(7, 61),
+		}
+	)
+
+	tabPageTweens[name] = fadeIn
+	fadeIn:Play()
+
+	fadeIn.Completed:Connect(function(playbackState)
+		if token ~= tabSwitchToken then
+			return
+		end
+
+		if tabPageTweens[name] == fadeIn then
 			tabPageTweens[name] = nil
 		end
 
-		local fadeIn = TweenService:Create(
-			nextPage,
-			TweenInfo.new(
-				0.16,
-				Enum.EasingStyle.Quart,
-				Enum.EasingDirection.Out
-			),
-			{
-				GroupTransparency = 0,
-				Position = UDim2.fromOffset(7, 61),
-			}
-		)
+		if playbackState == Enum.PlaybackState.Completed
+			and currentTab == name
+			and nextPage.Parent then
 
-		tabPageTweens[name] = fadeIn
-		fadeIn:Play()
-
-		fadeIn.Completed:Connect(function()
-			if tabPageTweens[name] == fadeIn then
-				tabPageTweens[name] = nil
-			end
-		end)
-	end
+			nextPage.GroupTransparency = 0
+			nextPage.Position = UDim2.fromOffset(7, 61)
+		end
+	end)
 end
 
 for i, name in ipairs(tabs) do
@@ -4803,7 +4803,80 @@ do
 		table.clear(configButtons)
 	end
 
-	local function RefreshConfigList()
+	local function AnimateConfigRowIn(button)
+		if not button or not button.Parent then
+			return
+		end
+
+		local targetSize = button.Size
+
+		button.Size = UDim2.new(
+			targetSize.X.Scale,
+			targetSize.X.Offset,
+			0,
+			0
+		)
+
+		button.BackgroundTransparency = 1
+		button.TextTransparency = 1
+
+		TweenService:Create(
+			button,
+			TweenInfo.new(
+				0.18,
+				Enum.EasingStyle.Quart,
+				Enum.EasingDirection.Out
+			),
+			{
+				Size = targetSize,
+				BackgroundTransparency = 0,
+				TextTransparency = 0,
+			}
+		):Play()
+	end
+
+	local function AnimateConfigRowOut(button, callback)
+		if not button or not button.Parent then
+			if callback then
+				callback()
+			end
+
+			return
+		end
+
+		local tween = TweenService:Create(
+			button,
+			TweenInfo.new(
+				0.16,
+				Enum.EasingStyle.Quart,
+				Enum.EasingDirection.In
+			),
+			{
+				Size = UDim2.new(
+					button.Size.X.Scale,
+					button.Size.X.Offset,
+					0,
+					0
+				),
+				BackgroundTransparency = 1,
+				TextTransparency = 1,
+			}
+		)
+
+		tween:Play()
+
+		tween.Completed:Connect(function()
+			if button and button.Parent then
+				button.Visible = false
+			end
+
+			if callback then
+				callback()
+			end
+		end)
+	end
+
+	local function RefreshConfigList(animateName)
 		ClearConfigRows()
 
 		local configs = Library:GetConfigs()
@@ -4879,6 +4952,10 @@ do
 
 			configButtons[name] = button
 
+			if animateName == name then
+				AnimateConfigRowIn(button)
+			end
+
 			Track(button.MouseEnter:Connect(function()
 				if selectedConfig ~= name then
 					Tween(button, {
@@ -4948,7 +5025,7 @@ do
 		if ok then
 			selectedConfig = result
 			configNameBox.Text = result
-			RefreshConfigList()
+			RefreshConfigList(result)
 			selectedConfig = result
 			RefreshSelectionVisuals()
 			SetStatus("created: " .. result, true)
@@ -5013,25 +5090,35 @@ do
 			selectedConfig
 			or NormalizeConfigName(configNameBox.Text)
 
-		local ok, result = Library:DeleteConfig(requested)
-
-		if ok then
-			if Library:GetAutoload() == result then
-				Library:ClearAutoload()
-			end
-
-			selectedConfig = nil
-			RefreshConfigList()
-			SetStatus("deleted: " .. result, true)
-
-			Library:Notify({
-				Title = "Config",
-				Text = "deleted " .. result,
-				Duration = 2.2,
-			})
-		else
-			SetStatus(result, false)
+		if requested == "" then
+			SetStatus("select config", false)
+			return
 		end
+
+		local row = configButtons[requested]
+
+		AnimateConfigRowOut(row, function()
+			local ok, result = Library:DeleteConfig(requested)
+
+			if ok then
+				if Library:GetAutoload() == result then
+					Library:ClearAutoload()
+				end
+
+				selectedConfig = nil
+				RefreshConfigList()
+				SetStatus("deleted: " .. result, true)
+
+				Library:Notify({
+					Title = "Config",
+					Text = "deleted " .. result,
+					Duration = 2.2,
+				})
+			else
+				RefreshConfigList()
+				SetStatus(result, false)
+			end
+		end)
 	end))
 
 	Track(refreshButton.MouseButton1Click:Connect(function()
