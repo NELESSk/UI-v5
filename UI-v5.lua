@@ -91,14 +91,14 @@ local C = {
 local FONT = Enum.Font.Code
 
 local MOTION = {
-	Fast = 0.08,
-	Hover = 0.11,
-	Control = 0.13,
-	Popup = 0.12,
-	TabOut = 0.10,
-	TabIn = 0.16,
-	WindowIn = 0.20,
-	WindowOut = 0.16,
+	Fast = 0.10,
+	Hover = 0.14,
+	Control = 0.16,
+	Popup = 0.14,
+	TabOut = 0.09,
+	TabIn = 0.14,
+	WindowIn = 0.22,
+	WindowOut = 0.18,
 }
 
 local function New(className, props)
@@ -111,20 +111,37 @@ local function New(className, props)
 	return obj
 end
 
+local activeTweens = setmetatable({}, {__mode = "k"})
+
 local function Tween(obj, props, duration)
 	if unloaded or not obj or not obj.Parent then
 		return nil
 	end
 
+	local previous = activeTweens[obj]
+	if previous then
+		pcall(function()
+			previous:Cancel()
+		end)
+	end
+
 	local tween = TweenService:Create(
 		obj,
 		TweenInfo.new(
-			duration or 0.16,
-			Enum.EasingStyle.Quint,
+			duration or MOTION.Control,
+			Enum.EasingStyle.Quart,
 			Enum.EasingDirection.Out
 		),
 		props
 	)
+
+	activeTweens[obj] = tween
+
+	tween.Completed:Connect(function()
+		if activeTweens[obj] == tween then
+			activeTweens[obj] = nil
+		end
+	end)
 
 	tween:Play()
 	return tween
@@ -318,17 +335,11 @@ local function RefreshTabLayout()
 end
 
 local function SetTab(name)
-	if not pages[name] then
-		return
-	end
-
-	if currentTab == name then
+	if not pages[name] or currentTab == name then
 		return
 	end
 
 	CloseTransientPopups()
-
-	local previousTab = currentTab
 	currentTab = name
 
 	local index = tabIndices[name]
@@ -339,36 +350,29 @@ local function SetTab(name)
 			tabIndicatorTween:Cancel()
 		end
 
+		if tabIndicatorGlowTween then
+			tabIndicatorGlowTween:Cancel()
+		end
+
 		tabIndicatorTween = TweenService:Create(
 			tabIndicator,
-			TweenInfo.new(
-				0.20,
-				Enum.EasingStyle.Quart,
-				Enum.EasingDirection.Out
-			),
+			TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
 			{
 				Position = UDim2.fromOffset(targetX, 0),
 				Size = UDim2.fromOffset(tabWidth, 2),
 			}
 		)
-		tabIndicatorTween:Play()
-
-		if tabIndicatorGlowTween then
-			tabIndicatorGlowTween:Cancel()
-		end
 
 		tabIndicatorGlowTween = TweenService:Create(
 			tabIndicatorGlow,
-			TweenInfo.new(
-				0.22,
-				Enum.EasingStyle.Quart,
-				Enum.EasingDirection.Out
-			),
+			TweenInfo.new(0.20, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
 			{
 				Position = UDim2.fromOffset(targetX, 1),
 				Size = UDim2.fromOffset(tabWidth, 3),
 			}
 		)
+
+		tabIndicatorTween:Play()
 		tabIndicatorGlowTween:Play()
 	end
 
@@ -377,83 +381,57 @@ local function SetTab(name)
 
 		Tween(button, {
 			BackgroundColor3 = selected
-				and Color3.fromRGB(25, 23, 27)
+				and Color3.fromRGB(27, 24, 29)
 				or Color3.fromRGB(17, 17, 18),
-
-			TextColor3 = selected
-				and C.Text
-				or C.Muted,
-		}, 0.16)
+			TextColor3 = selected and C.Text or C.Muted,
+		}, MOTION.Hover)
 	end
 
-	if previousTab and previousTab ~= name and pages[previousTab] then
-		local oldPage = pages[previousTab]
+	for tabName, page in pairs(pages) do
+		local oldTween = tabPageTweens[tabName]
 
-		if tabPageTweens[previousTab] then
-			tabPageTweens[previousTab]:Cancel()
-			tabPageTweens[previousTab] = nil
+		if oldTween then
+			pcall(function()
+				oldTween:Cancel()
+			end)
+
+			tabPageTweens[tabName] = nil
 		end
 
-		local fadeOut = TweenService:Create(
-			oldPage,
-			TweenInfo.new(
-				MOTION.TabOut,
-				Enum.EasingStyle.Quart,
-				Enum.EasingDirection.Out
-			),
-			{
-				GroupTransparency = 1,
-				Position = UDim2.fromOffset(-3, 0),
-			}
-		)
-
-		tabPageTweens[previousTab] = fadeOut
-		fadeOut:Play()
-
-		fadeOut.Completed:Connect(function(playbackState)
-			if tabPageTweens[previousTab] == fadeOut then
-				tabPageTweens[previousTab] = nil
-			end
-
-			if playbackState == Enum.PlaybackState.Completed
-				and currentTab ~= previousTab
-				and oldPage.Parent then
-
-				oldPage.Visible = false
-				oldPage.Position = UDim2.fromOffset(0, 0)
-			end
-		end)
+		if tabName ~= name then
+			page.Visible = false
+			page.GroupTransparency = 1
+			page.Position = UDim2.fromOffset(0, 0)
+		end
 	end
 
 	local nextPage = pages[name]
 	nextPage.Visible = true
-	nextPage.GroupTransparency = previousTab and 1 or 0
-	nextPage.Position = previousTab
-		and UDim2.fromOffset(3, 0)
-		or UDim2.fromOffset(0, 0)
+	nextPage.GroupTransparency = 1
+	nextPage.Position = UDim2.fromOffset(5, 0)
 
-	if previousTab then
-		if tabPageTweens[name] then
-			tabPageTweens[name]:Cancel()
+	local fadeIn = TweenService:Create(
+		nextPage,
+		TweenInfo.new(
+			MOTION.TabIn,
+			Enum.EasingStyle.Quart,
+			Enum.EasingDirection.Out
+		),
+		{
+			GroupTransparency = 0,
+			Position = UDim2.fromOffset(0, 0),
+		}
+	)
+
+	tabPageTweens[name] = fadeIn
+
+	fadeIn.Completed:Connect(function()
+		if tabPageTweens[name] == fadeIn then
 			tabPageTweens[name] = nil
 		end
+	end)
 
-		local fadeIn = TweenService:Create(
-			nextPage,
-			TweenInfo.new(
-				MOTION.TabIn,
-				Enum.EasingStyle.Quart,
-				Enum.EasingDirection.Out
-			),
-			{
-				GroupTransparency = 0,
-				Position = UDim2.fromOffset(0, 0),
-			}
-		)
-
-		tabPageTweens[name] = fadeIn
-		fadeIn:Play()
-	end
+	fadeIn:Play()
 end
 
 local function Section(parent, titleText, height)
@@ -1256,7 +1234,11 @@ local function AddKeybind(parent, y, text, defaultKey, defaultMode, callback)
 			return
 		end
 
-		if processed or not currentKey then
+		if not currentKey then
+			return
+		end
+
+		if UserInputService:GetFocusedTextBox() then
 			return
 		end
 
@@ -2606,10 +2588,128 @@ function Library:SetAccent(color)
 	C.Accent = color
 	tabIndicator.BackgroundColor3 = color
 	tabIndicatorGlow.BackgroundColor3 = color
+
+	if watermarkAccent and watermarkAccent.Parent then
+		watermarkAccent.BackgroundColor3 = color
+	end
 end
 
 function Library:SelectTab(name)
 	SetTab(tostring(name or ""))
+end
+
+local watermarkSide = "Right"
+local watermarkTextValue = "UI-v5"
+local watermarkVisible = false
+
+local watermark = New("CanvasGroup", {
+	Name = "Watermark",
+	Parent = gui,
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -10, 0, 10),
+	Size = UDim2.fromOffset(180, 26),
+	BackgroundColor3 = Color3.fromRGB(20, 19, 22),
+	BorderSizePixel = 0,
+	GroupTransparency = 1,
+	Visible = false,
+	ZIndex = 2100,
+})
+Corner(watermark, 4)
+Stroke(watermark, Color3.fromRGB(74, 62, 79), 0.16)
+
+local watermarkAccent = New("Frame", {
+	Parent = watermark,
+	Position = UDim2.fromOffset(0, 0),
+	Size = UDim2.new(0, 2, 1, 0),
+	BackgroundColor3 = C.Accent,
+	BorderSizePixel = 0,
+	ZIndex = 2101,
+})
+
+local watermarkLabel = Label(
+	watermark,
+	watermarkTextValue,
+	UDim2.new(1, -16, 1, 0),
+	Color3.fromRGB(235, 235, 239)
+)
+watermarkLabel.Position = UDim2.fromOffset(9, 0)
+watermarkLabel.TextSize = 12
+watermarkLabel.ZIndex = 2102
+
+local function WatermarkWidth()
+	local bounds = TextService:GetTextSize(
+		watermarkTextValue,
+		12,
+		FONT,
+		Vector2.new(800, 50)
+	)
+
+	return math.clamp(bounds.X + 20, 110, 360)
+end
+
+local function WatermarkPosition()
+	if watermarkSide == "Left" then
+		watermark.AnchorPoint = Vector2.new(0, 0)
+		return UDim2.new(0, 10, 0, 10)
+	end
+
+	watermark.AnchorPoint = Vector2.new(1, 0)
+	return UDim2.new(1, -10, 0, 10)
+end
+
+function Library:SetWatermark(text, side)
+	if text ~= nil then
+		watermarkTextValue = tostring(text)
+		watermarkLabel.Text = watermarkTextValue
+		watermark.Size = UDim2.fromOffset(WatermarkWidth(), 26)
+	end
+
+	if side ~= nil then
+		local normalized = string.lower(tostring(side))
+
+		if normalized:find("left", 1, true) then
+			watermarkSide = "Left"
+		elseif normalized:find("right", 1, true) then
+			watermarkSide = "Right"
+		end
+	end
+
+	Tween(watermark, {
+		Position = WatermarkPosition(),
+	}, MOTION.Hover)
+end
+
+function Library:SetWatermarkPosition(side)
+	self:SetWatermark(nil, side)
+end
+
+function Library:SetWatermarkVisible(state)
+	state = state == true
+	watermarkVisible = state
+
+	if state then
+		watermark.Visible = true
+		watermark.GroupTransparency = 1
+		watermark.Position = WatermarkPosition()
+
+		Tween(watermark, {
+			GroupTransparency = 0,
+		}, MOTION.Control)
+	else
+		local hide = Tween(watermark, {
+			GroupTransparency = 1,
+		}, MOTION.Fast)
+
+		if hide then
+			hide.Completed:Connect(function()
+				if not watermarkVisible and watermark.Parent then
+					watermark.Visible = false
+				end
+			end)
+		else
+			watermark.Visible = false
+		end
+	end
 end
 
 local notificationRoot = New("Frame", {
@@ -2692,8 +2792,8 @@ function Library:Notify(data, duration)
 		Position = UDim2.new(1, 20, 0, 0),
 		Size = UDim2.fromOffset(width, height),
 
-		BackgroundColor3 = Color3.fromRGB(14, 14, 17),
-		BackgroundTransparency = 0.18,
+		BackgroundColor3 = Color3.fromRGB(25, 23, 28),
+		BackgroundTransparency = 0.03,
 		BorderSizePixel = 0,
 
 		GroupTransparency = 1,
@@ -2701,7 +2801,16 @@ function Library:Notify(data, duration)
 		ZIndex = 1902,
 	})
 	Corner(card, 6)
-	Stroke(card, Color3.fromRGB(61, 47, 66), 0.30)
+	Stroke(card, Color3.fromRGB(104, 72, 112), 0.14)
+
+	New("Frame", {
+		Parent = card,
+		Position = UDim2.fromOffset(0, 0),
+		Size = UDim2.new(0, 2, 1, 0),
+		BackgroundColor3 = C.Accent,
+		BorderSizePixel = 0,
+		ZIndex = 1906,
+	})
 
 	local y = 4
 
@@ -2947,6 +3056,7 @@ local opened = true
 local visibilityTween = nil
 local positionTween = nil
 local restingPosition = main.Position
+local toggleKey = Enum.KeyCode.RightShift
 
 local function OffsetPosition(position, yOffset)
 	return UDim2.new(
@@ -3047,12 +3157,18 @@ local function SetVisible(state)
 	end
 end
 
-Track(UserInputService.InputBegan:Connect(function(input, processed)
-	if processed or unloaded or capturingKeybind then
+Track(UserInputService.InputBegan:Connect(function(input)
+	if unloaded or capturingKeybind then
 		return
 	end
 
-	if input.KeyCode == Enum.KeyCode.RightShift then
+	if UserInputService:GetFocusedTextBox() then
+		return
+	end
+
+	if input.UserInputType == Enum.UserInputType.Keyboard
+		and input.KeyCode == toggleKey then
+
 		SetVisible(not opened)
 	end
 end))
@@ -3063,6 +3179,22 @@ end
 
 function Library:Toggle()
 	SetVisible(not opened)
+end
+
+function Library:SetToggleKey(key)
+	if typeof(key) == "EnumItem"
+		and key.EnumType == Enum.KeyCode
+		and key ~= Enum.KeyCode.Unknown then
+
+		toggleKey = key
+		return true
+	end
+
+	return false
+end
+
+function Library:GetToggleKey()
+	return toggleKey
 end
 
 function Library:Unload()
