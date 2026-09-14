@@ -305,6 +305,7 @@ pcall(function()
 end)
 
 local Library = {}
+Library.Version = "5.0.1-clean"
 RuntimeEnvironment.__UI_V5_RUNTIME = Library
 
 local main = New("CanvasGroup", {
@@ -2867,8 +2868,11 @@ function Library:SelectTab(name)
 end
 
 local watermarkSide = "Right"
-local watermarkTextValue = "UI-v5"
+local watermarkTitle = "Rat.Lua | Aftermath"
 local watermarkVisible = false
+local watermarkDragging = false
+local watermarkDragStart = nil
+local watermarkStartPosition = nil
 local watermarkTween = nil
 
 local watermark = New("CanvasGroup", {
@@ -2876,99 +2880,278 @@ local watermark = New("CanvasGroup", {
 	Parent = gui,
 	AnchorPoint = Vector2.new(1, 0),
 	Position = UDim2.new(1, -10, 0, 10),
-	Size = UDim2.fromOffset(190, 28),
-	BackgroundColor3 = C.Watermark,
+	Size = UDim2.fromOffset(220, 34),
+	BackgroundColor3 = Color3.fromRGB(14, 14, 17),
 	BorderSizePixel = 0,
 	GroupTransparency = 1,
 	Visible = false,
-	ZIndex = 80000,
+	ZIndex = 90000,
 })
-Corner(watermark, 3)
+Corner(watermark, 8)
 
-local watermarkStroke = Stroke(
-	watermark,
-	C.WatermarkBorder,
-	0.14
-)
-watermarkStroke.Thickness = 1
-
-local watermarkAccent = New("Frame", {
+local watermarkGradientStroke = New("UIStroke", {
 	Parent = watermark,
-	Position = UDim2.fromOffset(0, 0),
-	Size = UDim2.new(1, 0, 0, 1),
-	BackgroundColor3 = C.Accent,
-	BorderSizePixel = 0,
-	ZIndex = 80002,
+	Color = Color3.fromRGB(255, 255, 255),
+	Thickness = 1.6,
+	Transparency = 0.02,
+	ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 })
 
-local watermarkDot = New("Frame", {
-	Parent = watermark,
-	AnchorPoint = Vector2.new(0, 0.5),
-	Position = UDim2.new(0, 9, 0.5, 1),
-	Size = UDim2.fromOffset(4, 4),
-	BackgroundColor3 = C.Accent,
-	BorderSizePixel = 0,
-	ZIndex = 80003,
+local watermarkGradient = New("UIGradient", {
+	Parent = watermarkGradientStroke,
+	Rotation = 0,
+	Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0.00, Color3.fromRGB(70, 44, 76)),
+		ColorSequenceKeypoint.new(0.18, C.Accent),
+		ColorSequenceKeypoint.new(0.35, Color3.fromRGB(222, 150, 232)),
+		ColorSequenceKeypoint.new(0.52, Color3.fromRGB(92, 53, 102)),
+		ColorSequenceKeypoint.new(0.70, C.Accent),
+		ColorSequenceKeypoint.new(0.86, Color3.fromRGB(225, 155, 235)),
+		ColorSequenceKeypoint.new(1.00, Color3.fromRGB(70, 44, 76)),
+	}),
 })
-Corner(watermarkDot, 8)
 
-local watermarkLabel = Label(
-	watermark,
-	watermarkTextValue,
-	UDim2.new(1, -25, 1, 0),
-	C.Text
+local watermarkGradientTween = TweenService:Create(
+	watermarkGradient,
+	TweenInfo.new(
+		3.2,
+		Enum.EasingStyle.Linear,
+		Enum.EasingDirection.Out,
+		-1,
+		false,
+		0
+	),
+	{
+		Rotation = 360,
+	}
 )
-watermarkLabel.Position = UDim2.fromOffset(19, 1)
-watermarkLabel.TextSize = 12
-watermarkLabel.TextTruncate = Enum.TextTruncate.AtEnd
-watermarkLabel.ZIndex = 80004
+watermarkGradientTween:Play()
 
-local function WatermarkWidth()
-	local bounds = TextService:GetTextSize(
-		watermarkTextValue,
-		12,
+local watermarkInner = New("Frame", {
+	Parent = watermark,
+	Position = UDim2.fromOffset(2, 2),
+	Size = UDim2.new(1, -4, 1, -4),
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	ZIndex = 90001,
+})
+Corner(watermarkInner, 7)
+
+New("UIStroke", {
+	Parent = watermarkInner,
+	Color = Color3.fromRGB(38, 38, 43),
+	Thickness = 1,
+	Transparency = 0.18,
+	ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+})
+
+local watermarkText = Label(
+	watermark,
+	watermarkTitle,
+	UDim2.new(1, -24, 1, 0),
+	C.Text,
+	Enum.TextXAlignment.Left
+)
+watermarkText.Position = UDim2.fromOffset(12, 0)
+watermarkText.TextSize = 13
+watermarkText.ZIndex = 90003
+
+local watermarkDragArea = New("TextButton", {
+	Parent = watermark,
+	Size = UDim2.fromScale(1, 1),
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	AutoButtonColor = false,
+	Active = true,
+	Text = "",
+	ZIndex = 90010,
+})
+
+local function MeasureWatermarkWidth()
+	local measured = TextService:GetTextSize(
+		tostring(watermarkTitle or ""),
+		13,
 		FONT,
-		Vector2.new(900, 50)
+		Vector2.new(1000, 100)
 	)
 
-	return math.clamp(bounds.X + 36, 125, 390)
+	return math.clamp(measured.X + 24, 150, 420)
 end
 
-local function WatermarkPosition()
-	if watermarkSide == "Left" then
-		watermark.AnchorPoint = Vector2.new(0, 0)
+local function ResizeWatermark()
+	watermark.Size = UDim2.fromOffset(
+		MeasureWatermarkWidth(),
+		34
+	)
+end
+
+local function GetWatermarkPosition(side)
+	if side == "Left" then
 		return UDim2.new(0, 10, 0, 10)
 	end
 
-	watermark.AnchorPoint = Vector2.new(1, 0)
 	return UDim2.new(1, -10, 0, 10)
 end
 
+local function NormalizeWatermarkSide(side)
+	local normalized = string.lower(
+		tostring(side or "")
+	)
+
+	if normalized == "left"
+		or normalized == "topleft"
+		or normalized == "lefttop"
+		or normalized == "top-left"
+		or normalized == "top_left" then
+
+		return "Left"
+	end
+
+	if normalized == "right"
+		or normalized == "topright"
+		or normalized == "righttop"
+		or normalized == "top-right"
+		or normalized == "top_right" then
+
+		return "Right"
+	end
+
+	return nil
+end
+
+Track(watermarkDragArea.MouseEnter:Connect(function()
+	if not watermarkDragging then
+		Tween(watermark, {
+			BackgroundColor3 = Color3.fromRGB(18, 16, 20),
+		}, 0.10)
+
+		Tween(watermarkGradientStroke, {
+			Thickness = 2,
+		}, 0.10)
+	end
+end))
+
+Track(watermarkDragArea.MouseLeave:Connect(function()
+	if not watermarkDragging then
+		Tween(watermark, {
+			BackgroundColor3 = Color3.fromRGB(14, 14, 17),
+		}, 0.10)
+
+		Tween(watermarkGradientStroke, {
+			Thickness = 1.6,
+		}, 0.10)
+	end
+end))
+
+Track(watermarkDragArea.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1
+		or input.UserInputType == Enum.UserInputType.Touch then
+
+		watermarkDragging = true
+		watermarkDragStart = input.Position
+
+		local abs = watermark.AbsolutePosition
+
+		watermark.AnchorPoint = Vector2.new(0, 0)
+		watermark.Position = UDim2.fromOffset(abs.X, abs.Y)
+		watermarkStartPosition = watermark.Position
+		watermarkSide = "Custom"
+
+		Tween(watermarkGradientStroke, {
+			Thickness = 2.2,
+		}, 0.08)
+	end
+end))
+
+Track(UserInputService.InputChanged:Connect(function(input)
+	if not watermarkDragging then
+		return
+	end
+
+	if input.UserInputType ~= Enum.UserInputType.MouseMovement
+		and input.UserInputType ~= Enum.UserInputType.Touch then
+
+		return
+	end
+
+	local delta = input.Position - watermarkDragStart
+
+	watermark.Position = UDim2.fromOffset(
+		watermarkStartPosition.X.Offset + delta.X,
+		watermarkStartPosition.Y.Offset + delta.Y
+	)
+end))
+
+Track(UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1
+		or input.UserInputType == Enum.UserInputType.Touch then
+
+		if watermarkDragging then
+			watermarkDragging = false
+
+			Tween(watermarkGradientStroke, {
+				Thickness = 1.6,
+			}, 0.10)
+		end
+	end
+end))
+
 function Library:SetWatermark(text, side)
+	if unloaded or not watermarkText.Parent then
+		return
+	end
+
 	if text ~= nil then
-		watermarkTextValue = tostring(text)
-		watermarkLabel.Text = watermarkTextValue
-		watermark.Size = UDim2.fromOffset(WatermarkWidth(), 28)
+		watermarkTitle = tostring(text)
 	end
 
 	if side ~= nil then
-		local normalized = string.lower(tostring(side))
+		local normalized = NormalizeWatermarkSide(side)
 
-		if normalized:find("left", 1, true) then
-			watermarkSide = "Left"
-		elseif normalized:find("right", 1, true) then
-			watermarkSide = "Right"
+		if normalized then
+			watermarkSide = normalized
 		end
 	end
 
-	watermark.Position = WatermarkPosition()
+	watermarkText.Text = watermarkTitle
+	ResizeWatermark()
+
+	if watermarkSide == "Left"
+		or watermarkSide == "Right" then
+
+		watermark.AnchorPoint =
+			watermarkSide == "Left"
+			and Vector2.new(0, 0)
+			or Vector2.new(1, 0)
+
+		watermark.Position =
+			GetWatermarkPosition(watermarkSide)
+	end
 end
 
 function Library:SetWatermarkPosition(side)
-	self:SetWatermark(nil, side)
+	local normalized = NormalizeWatermarkSide(side)
+
+	if not normalized then
+		return
+	end
+
+	watermarkSide = normalized
+
+	watermark.AnchorPoint =
+		watermarkSide == "Left"
+		and Vector2.new(0, 0)
+		or Vector2.new(1, 0)
+
+	watermark.Position =
+		GetWatermarkPosition(watermarkSide)
 end
 
 function Library:SetWatermarkVisible(state)
+	if unloaded or not watermark.Parent then
+		return
+	end
+
 	state = state == true
 
 	if watermarkVisible == state then
@@ -2985,7 +3168,19 @@ function Library:SetWatermarkVisible(state)
 
 	if state then
 		watermark.Visible = true
-		watermark.Position = WatermarkPosition()
+		watermark.GroupTransparency = 1
+
+		if watermarkSide == "Left"
+			or watermarkSide == "Right" then
+
+			watermark.AnchorPoint =
+				watermarkSide == "Left"
+				and Vector2.new(0, 0)
+				or Vector2.new(1, 0)
+
+			watermark.Position =
+				GetWatermarkPosition(watermarkSide)
+		end
 
 		watermarkTween = TweenService:Create(
 			watermark,
@@ -3015,9 +3210,8 @@ function Library:SetWatermarkVisible(state)
 
 		local thisTween = watermarkTween
 
-		thisTween.Completed:Connect(function(stateResult)
+		thisTween.Completed:Connect(function()
 			if watermarkTween == thisTween
-				and stateResult == Enum.PlaybackState.Completed
 				and not watermarkVisible
 				and watermark.Parent then
 
@@ -3029,14 +3223,7 @@ function Library:SetWatermarkVisible(state)
 	end
 end
 
-local function MeasureText(text, textSize, maxWidth)
-	return TextService:GetTextSize(
-		tostring(text or ""),
-		textSize or 13,
-		FONT,
-		Vector2.new(maxWidth or 1000, 1000)
-	)
-end
+ResizeWatermark()
 
 local notificationRoot = New("Frame", {
 	Name = "Notifications",
@@ -3067,7 +3254,7 @@ function Library:Notify(data, duration)
 
 	local titleText = nil
 	local bodyText = nil
-	local lifetime = duration or 3
+	local lifetime = tonumber(duration) or 3
 
 	if type(data) == "table" then
 		local rawTitle =
@@ -3120,52 +3307,12 @@ function Library:Notify(data, duration)
 	lifetime = math.clamp(lifetime, 0.5, 30)
 	notificationOrder += 1
 
-	local titleSize = 13
-	local bodySize = 13
-
-	local titleBounds = titleText
-		and MeasureText(
-			titleText,
-			titleSize,
-			900
-		)
-		or Vector2.zero
-
-	local bodyBounds = bodyText
-		and MeasureText(
-			bodyText,
-			bodySize,
-			900
-		)
-		or Vector2.zero
-
-	local separatorWidth =
-		(titleText and bodyText)
-		and 14
-		or 0
-
-	local wantedWidth =
-		titleBounds.X
-		+ bodyBounds.X
-		+ separatorWidth
-		+ 34
-
-	local cardWidth = math.clamp(
-		wantedWidth,
-		320,
-		510
-	)
-
-	local cardHeight = 24
+	local cardWidth = 460
+	local cardHeight = 26
 
 	local holder = New("Frame", {
 		Parent = notificationRoot,
-		Size = UDim2.new(
-			1,
-			0,
-			0,
-			cardHeight
-		),
+		Size = UDim2.new(1, 0, 0, cardHeight),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		LayoutOrder = notificationOrder,
@@ -3175,13 +3322,13 @@ function Library:Notify(data, duration)
 	local card = New("CanvasGroup", {
 		Parent = holder,
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, 16, 0, 0),
+		Position = UDim2.new(1, 20, 0, 0),
 		Size = UDim2.fromOffset(
 			cardWidth,
 			cardHeight
 		),
 		BackgroundColor3 = C.Notification,
-		BackgroundTransparency = 0.03,
+		BackgroundTransparency = 0.02,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 		GroupTransparency = 1,
@@ -3189,24 +3336,13 @@ function Library:Notify(data, duration)
 	})
 	Corner(card, 4)
 
-	New("UIStroke", {
+	local cardStroke = New("UIStroke", {
 		Parent = card,
 		Color = C.NotificationBorder,
 		Thickness = 1,
-		Transparency = 0.18,
+		Transparency = 0.16,
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 	})
-
-	local sideGlow = New("Frame", {
-		Parent = card,
-		Position = UDim2.fromOffset(-2, 1),
-		Size = UDim2.new(0, 8, 1, -2),
-		BackgroundColor3 = C.Accent,
-		BackgroundTransparency = 0.82,
-		BorderSizePixel = 0,
-		ZIndex = 100003,
-	})
-	Corner(sideGlow, 4)
 
 	local sideRail = New("Frame", {
 		Parent = card,
@@ -3214,22 +3350,27 @@ function Library:Notify(data, duration)
 		Size = UDim2.new(0, 3, 1, -2),
 		BackgroundColor3 = Color3.new(1, 1, 1),
 		BorderSizePixel = 0,
-		ZIndex = 100007,
+		ZIndex = 100008,
 	})
 	Corner(sideRail, 4)
 
-	local sideGradient = BindAccentGradient(New("UIGradient", {
+	local sideGradient = New("UIGradient", {
 		Parent = sideRail,
 		Rotation = 90,
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0.00, Color3.fromRGB(82, 48, 92)),
+			ColorSequenceKeypoint.new(0.50, C.Accent),
+			ColorSequenceKeypoint.new(1.00, Color3.fromRGB(226, 162, 235)),
+		}),
 		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0.00, 0.62),
-			NumberSequenceKeypoint.new(0.25, 0.12),
+			NumberSequenceKeypoint.new(0.00, 0.55),
+			NumberSequenceKeypoint.new(0.30, 0.08),
 			NumberSequenceKeypoint.new(0.50, 0.00),
-			NumberSequenceKeypoint.new(0.75, 0.12),
-			NumberSequenceKeypoint.new(1.00, 0.62),
+			NumberSequenceKeypoint.new(0.70, 0.08),
+			NumberSequenceKeypoint.new(1.00, 0.55),
 		}),
 		Offset = Vector2.new(0, -0.55),
-	}))
+	})
 
 	local sideTween = TweenService:Create(
 		sideGradient,
@@ -3246,44 +3387,33 @@ function Library:Notify(data, duration)
 	)
 	sideTween:Play()
 
-	local x = 11
+	local x = 12
 
 	if titleText then
-		local titleWidth = math.min(
-			titleBounds.X + 2,
-			cardWidth - 24
-		)
-
 		local titleLabel = Label(
 			card,
 			titleText,
-			UDim2.fromOffset(
-				titleWidth,
-				cardHeight
-			),
+			UDim2.fromOffset(120, cardHeight),
 			C.TextStrong
 		)
 
 		titleLabel.Position =
 			UDim2.fromOffset(x, 0)
 
-		titleLabel.TextSize = titleSize
+		titleLabel.TextSize = 13
 		titleLabel.TextTruncate =
 			Enum.TextTruncate.AtEnd
 
 		titleLabel.ZIndex = 100010
 
-		x += titleWidth
+		x += 124
 	end
 
 	if titleText and bodyText then
 		local separator = Label(
 			card,
 			"•",
-			UDim2.fromOffset(
-				14,
-				cardHeight
-			),
+			UDim2.fromOffset(14, cardHeight),
 			C.Accent
 		)
 
@@ -3300,17 +3430,11 @@ function Library:Notify(data, duration)
 	end
 
 	if bodyText then
-		local available =
-			math.max(
-				20,
-				cardWidth - x - 9
-			)
-
 		local bodyLabel = Label(
 			card,
 			bodyText,
 			UDim2.fromOffset(
-				available,
+				cardWidth - x - 10,
 				cardHeight
 			),
 			C.Text
@@ -3319,62 +3443,47 @@ function Library:Notify(data, duration)
 		bodyLabel.Position =
 			UDim2.fromOffset(x, 0)
 
-		bodyLabel.TextSize = bodySize
+		bodyLabel.TextSize = 13
 		bodyLabel.TextTruncate =
 			Enum.TextTruncate.AtEnd
 
 		bodyLabel.ZIndex = 100010
 	end
 
-	local progressBack = New("Frame", {
+	local progress = New("Frame", {
 		Parent = card,
 		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(
-			0,
-			8,
-			1,
-			-1
-		),
-		Size = UDim2.new(
-			1,
-			-16,
-			0,
-			1
-		),
-		BackgroundColor3 = C.ProgressBack,
-		BackgroundTransparency = 0.25,
+		Position = UDim2.new(0, 8, 1, -1),
+		Size = UDim2.new(1, -16, 0, 1),
+		BackgroundColor3 = C.Accent,
 		BorderSizePixel = 0,
-		ZIndex = 100004,
+		ZIndex = 100006,
 	})
-
-	local progress = New("Frame", {
-		Parent = progressBack,
-		Size = UDim2.new(1, 0, 1, 0),
-		BackgroundColor3 = Color3.new(1, 1, 1),
-		BorderSizePixel = 0,
-		ZIndex = 100005,
-	})
-
-	BindAccentGradient(New("UIGradient", {
-		Parent = progress,
-	}))
 
 	Tween(card, {
 		GroupTransparency = 0,
 		Position = UDim2.new(1, 0, 0, 0),
 	}, 0.15)
 
-	local progressTween = TweenService:Create(
-		progress,
-		TweenInfo.new(
-			lifetime,
-			Enum.EasingStyle.Linear,
-			Enum.EasingDirection.Out
-		),
-		{
-			Size = UDim2.new(0, 0, 1, 0),
-		}
-	)
+	local progressTween =
+		TweenService:Create(
+			progress,
+			TweenInfo.new(
+				lifetime,
+				Enum.EasingStyle.Linear,
+				Enum.EasingDirection.Out
+			),
+			{
+				Size =
+					UDim2.new(
+						0,
+						0,
+						0,
+						1
+					),
+			}
+		)
+
 	progressTween:Play()
 
 	task.delay(lifetime, function()
@@ -3410,7 +3519,7 @@ function Library:Notify(data, duration)
 
 		local hideTween = Tween(card, {
 			GroupTransparency = 1,
-			Position = UDim2.new(1, 16, 0, 0),
+			Position = UDim2.new(1, 20, 0, 0),
 		}, 0.12)
 
 		if hideTween then
@@ -3689,6 +3798,10 @@ function Library:Unload()
 
 	unloaded = true
 	CloseTransientPopups()
+
+	pcall(function()
+		watermarkGradientTween:Cancel()
+	end)
 
 	DisconnectAll()
 
