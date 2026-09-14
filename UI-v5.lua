@@ -369,7 +369,7 @@ pcall(function()
 end)
 
 local Library = {}
-Library.Version = "5.0.5-clean"
+Library.Version = "5.0.6-clean"
 RuntimeEnvironment.__UI_V5_RUNTIME = Library
 
 local main = New("CanvasGroup", {
@@ -1600,7 +1600,6 @@ local function AddColorPicker(parent, y, text, defaultColor, callback)
 	Corner(preview, 4)
 
 	local popup = nil
-	local popupScale = nil
 	local opened = false
 	local localConnections = {}
 
@@ -1699,20 +1698,9 @@ local function AddColorPicker(parent, y, text, defaultColor, callback)
 
 		if popup and popup.Parent then
 			local old = popup
-			local oldScale = popupScale
-
 			popup = nil
-			popupScale = nil
 
-			local hide = Tween(old, {
-				GroupTransparency = 1,
-			}, 0.11)
-
-			if oldScale and oldScale.Parent then
-				Tween(oldScale, {
-					Scale = 0.965,
-				}, 0.11)
-			end
+			old.Visible = true
 
 			local removed = false
 
@@ -1729,11 +1717,27 @@ local function AddColorPicker(parent, y, text, defaultColor, callback)
 				end
 			end
 
-			if hide then
-				hide.Completed:Connect(RemovePopup)
-			end
+			local hide = TweenService:Create(
+				old,
+				TweenInfo.new(
+					0.12,
+					Enum.EasingStyle.Quart,
+					Enum.EasingDirection.Out
+				),
+				{
+					GroupTransparency = 1,
+				}
+			)
 
-			task.delay(0.15, RemovePopup)
+			hide.Completed:Connect(function()
+				RemovePopup()
+			end)
+
+			hide:Play()
+
+			task.delay(0.16, function()
+				RemovePopup()
+			end)
 		end
 	end
 
@@ -1803,7 +1807,7 @@ local function AddColorPicker(parent, y, text, defaultColor, callback)
 
 		popup = New("CanvasGroup", {
 			Parent = main,
-			Position = UDim2.fromOffset(localX, localY + 4),
+			Position = UDim2.fromOffset(localX, localY),
 			Size = UDim2.fromOffset(W, H),
 
 			BackgroundColor3 = C.Popup,
@@ -1813,25 +1817,25 @@ local function AddColorPicker(parent, y, text, defaultColor, callback)
 			ZIndex = 300,
 		})
 
-		popupScale = New("UIScale", {
-			Parent = popup,
-			Scale = 0.965,
-		})
-
 		Stroke(popup, C.Border, 0.33)
 		Corner(popup, 6)
 
 		activeColorPickerPopup = popup
 		activeColorPickerPreview = preview
 
-		Tween(popup, {
-			GroupTransparency = 0,
-			Position = UDim2.fromOffset(localX, localY),
-		}, 0.14)
+		local show = TweenService:Create(
+			popup,
+			TweenInfo.new(
+				0.14,
+				Enum.EasingStyle.Quart,
+				Enum.EasingDirection.Out
+			),
+			{
+				GroupTransparency = 0,
+			}
+		)
 
-		Tween(popupScale, {
-			Scale = 1,
-		}, 0.14)
+		show:Play()
 
 
 		local dragHeader = New("TextButton", {
