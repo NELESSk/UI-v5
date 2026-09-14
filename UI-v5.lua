@@ -114,6 +114,8 @@ local C = {
 
 	Watermark = Color3.fromRGB(17, 17, 19),
 	WatermarkBorder = Color3.fromRGB(64, 57, 68),
+	WatermarkGradientA = Color3.fromRGB(15, 14, 17),
+	WatermarkGradientB = Color3.fromRGB(34, 22, 37),
 }
 
 local FONT = Enum.Font.Code
@@ -204,6 +206,14 @@ local function RefreshTheme()
 		if gradient and gradient.Parent then
 			gradient.Color = BuildAccentSequence()
 		end
+	end
+
+	if watermarkBackgroundGradient and watermarkBackgroundGradient.Parent then
+		watermarkBackgroundGradient.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0.00, C.WatermarkGradientA),
+			ColorSequenceKeypoint.new(0.52, C.Watermark),
+			ColorSequenceKeypoint.new(1.00, C.WatermarkGradientB),
+		})
 	end
 end
 
@@ -2764,58 +2774,104 @@ local watermarkSide = "Right"
 local watermarkTextValue = "UI-v5"
 local watermarkVisible = false
 local watermarkTween = nil
+local watermarkDragging = false
+local watermarkDragStart = nil
+local watermarkStartPosition = nil
 
 local watermark = New("CanvasGroup", {
 	Name = "Watermark",
 	Parent = gui,
 	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, -10, 0, 10),
-	Size = UDim2.fromOffset(190, 28),
+	Position = UDim2.new(1, -12, 0, 12),
+	Size = UDim2.fromOffset(200, 30),
 	BackgroundColor3 = C.Watermark,
 	BorderSizePixel = 0,
 	GroupTransparency = 1,
 	Visible = false,
 	ZIndex = 80000,
 })
-Corner(watermark, 3)
+Corner(watermark, 4)
+
+local watermarkBackgroundGradient = New("UIGradient", {
+	Parent = watermark,
+	Rotation = 0,
+	Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0.00, C.WatermarkGradientA),
+		ColorSequenceKeypoint.new(0.52, C.Watermark),
+		ColorSequenceKeypoint.new(1.00, C.WatermarkGradientB),
+	}),
+})
 
 local watermarkStroke = Stroke(
 	watermark,
 	C.WatermarkBorder,
-	0.14
+	0.08
 )
 watermarkStroke.Thickness = 1
+
+local watermarkStrokeGradient = BindAccentGradient(New("UIGradient", {
+	Parent = watermarkStroke,
+	Rotation = 0,
+}))
 
 local watermarkAccent = New("Frame", {
 	Parent = watermark,
 	Position = UDim2.fromOffset(0, 0),
-	Size = UDim2.new(1, 0, 0, 1),
-	BackgroundColor3 = C.Accent,
+	Size = UDim2.new(1, 0, 0, 2),
+	BackgroundColor3 = Color3.new(1, 1, 1),
 	BorderSizePixel = 0,
 	ZIndex = 80002,
 })
+Corner(watermarkAccent, 4)
+
+local watermarkAccentGradient = BindAccentGradient(New("UIGradient", {
+	Parent = watermarkAccent,
+	Rotation = 0,
+}))
+
+local watermarkDotGlow = New("Frame", {
+	Parent = watermark,
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.new(0, 12, 0.5, 1),
+	Size = UDim2.fromOffset(10, 10),
+	BackgroundColor3 = C.Accent,
+	BackgroundTransparency = 0.78,
+	BorderSizePixel = 0,
+	ZIndex = 80002,
+})
+Corner(watermarkDotGlow, 20)
 
 local watermarkDot = New("Frame", {
 	Parent = watermark,
-	AnchorPoint = Vector2.new(0, 0.5),
-	Position = UDim2.new(0, 9, 0.5, 1),
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.new(0, 12, 0.5, 1),
 	Size = UDim2.fromOffset(4, 4),
-	BackgroundColor3 = C.Accent,
+	BackgroundColor3 = C.AccentLight,
 	BorderSizePixel = 0,
 	ZIndex = 80003,
 })
-Corner(watermarkDot, 8)
+Corner(watermarkDot, 20)
 
 local watermarkLabel = Label(
 	watermark,
 	watermarkTextValue,
-	UDim2.new(1, -25, 1, 0),
-	C.Text
+	UDim2.new(1, -31, 1, 0),
+	C.TextStrong
 )
-watermarkLabel.Position = UDim2.fromOffset(19, 1)
+watermarkLabel.Position = UDim2.fromOffset(23, 1)
 watermarkLabel.TextSize = 12
 watermarkLabel.TextTruncate = Enum.TextTruncate.AtEnd
 watermarkLabel.ZIndex = 80004
+
+local watermarkDragArea = New("TextButton", {
+	Parent = watermark,
+	Size = UDim2.fromScale(1, 1),
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	AutoButtonColor = false,
+	Text = "",
+	ZIndex = 80010,
+})
 
 local function WatermarkWidth()
 	local bounds = TextService:GetTextSize(
@@ -2825,24 +2881,140 @@ local function WatermarkWidth()
 		Vector2.new(900, 50)
 	)
 
-	return math.clamp(bounds.X + 36, 125, 390)
+	return math.clamp(bounds.X + 42, 135, 420)
 end
 
 local function WatermarkPosition()
 	if watermarkSide == "Left" then
 		watermark.AnchorPoint = Vector2.new(0, 0)
-		return UDim2.new(0, 10, 0, 10)
+		return UDim2.new(0, 12, 0, 12)
 	end
 
-	watermark.AnchorPoint = Vector2.new(1, 0)
-	return UDim2.new(1, -10, 0, 10)
+	if watermarkSide == "Right" then
+		watermark.AnchorPoint = Vector2.new(1, 0)
+		return UDim2.new(1, -12, 0, 12)
+	end
+
+	return watermark.Position
 end
+
+Track(watermarkDragArea.MouseEnter:Connect(function()
+	if watermarkDragging then
+		return
+	end
+
+	Tween(watermarkStroke, {
+		Transparency = 0,
+		Thickness = 1.25,
+	}, MOTION.Fast)
+end))
+
+Track(watermarkDragArea.MouseLeave:Connect(function()
+	if watermarkDragging then
+		return
+	end
+
+	Tween(watermarkStroke, {
+		Transparency = 0.08,
+		Thickness = 1,
+	}, MOTION.Fast)
+end))
+
+Track(watermarkDragArea.InputBegan:Connect(function(input)
+	if input.UserInputType ~= Enum.UserInputType.MouseButton1
+		and input.UserInputType ~= Enum.UserInputType.Touch then
+		return
+	end
+
+	watermarkDragging = true
+	watermarkDragStart = input.Position
+
+	local absolute = watermark.AbsolutePosition
+
+	watermark.AnchorPoint = Vector2.new(0, 0)
+	watermark.Position = UDim2.fromOffset(absolute.X, absolute.Y)
+	watermarkStartPosition = watermark.Position
+	watermarkSide = "Custom"
+
+	Tween(watermarkStroke, {
+		Transparency = 0,
+		Thickness = 1.4,
+	}, MOTION.Fast)
+end))
+
+Track(UserInputService.InputChanged:Connect(function(input)
+	if not watermarkDragging then
+		return
+	end
+
+	if input.UserInputType ~= Enum.UserInputType.MouseMovement
+		and input.UserInputType ~= Enum.UserInputType.Touch then
+		return
+	end
+
+	local delta = input.Position - watermarkDragStart
+
+	watermark.Position = UDim2.fromOffset(
+		watermarkStartPosition.X.Offset + delta.X,
+		watermarkStartPosition.Y.Offset + delta.Y
+	)
+end))
+
+Track(UserInputService.InputEnded:Connect(function(input)
+	if input.UserInputType ~= Enum.UserInputType.MouseButton1
+		and input.UserInputType ~= Enum.UserInputType.Touch then
+		return
+	end
+
+	if not watermarkDragging then
+		return
+	end
+
+	watermarkDragging = false
+
+	Tween(watermarkStroke, {
+		Transparency = 0.08,
+		Thickness = 1,
+	}, MOTION.Fast)
+end))
+
+local watermarkGradientTween = TweenService:Create(
+	watermarkAccentGradient,
+	TweenInfo.new(
+		2.8,
+		Enum.EasingStyle.Linear,
+		Enum.EasingDirection.InOut,
+		-1,
+		true
+	),
+	{
+		Offset = Vector2.new(0.55, 0),
+	}
+)
+watermarkAccentGradient.Offset = Vector2.new(-0.55, 0)
+watermarkGradientTween:Play()
+
+local watermarkStrokeTween = TweenService:Create(
+	watermarkStrokeGradient,
+	TweenInfo.new(
+		4.5,
+		Enum.EasingStyle.Linear,
+		Enum.EasingDirection.InOut,
+		-1,
+		true
+	),
+	{
+		Offset = Vector2.new(0.45, 0),
+	}
+)
+watermarkStrokeGradient.Offset = Vector2.new(-0.45, 0)
+watermarkStrokeTween:Play()
 
 function Library:SetWatermark(text, side)
 	if text ~= nil then
 		watermarkTextValue = tostring(text)
 		watermarkLabel.Text = watermarkTextValue
-		watermark.Size = UDim2.fromOffset(WatermarkWidth(), 28)
+		watermark.Size = UDim2.fromOffset(WatermarkWidth(), 30)
 	end
 
 	if side ~= nil then
@@ -2855,7 +3027,9 @@ function Library:SetWatermark(text, side)
 		end
 	end
 
-	watermark.Position = WatermarkPosition()
+	if watermarkSide == "Left" or watermarkSide == "Right" then
+		watermark.Position = WatermarkPosition()
+	end
 end
 
 function Library:SetWatermarkPosition(side)
@@ -2879,12 +3053,17 @@ function Library:SetWatermarkVisible(state)
 
 	if state then
 		watermark.Visible = true
-		watermark.Position = WatermarkPosition()
+
+		if watermarkSide == "Left" or watermarkSide == "Right" then
+			watermark.Position = WatermarkPosition()
+		end
+
+		watermark.GroupTransparency = 1
 
 		watermarkTween = TweenService:Create(
 			watermark,
 			TweenInfo.new(
-				0.14,
+				0.16,
 				Enum.EasingStyle.Quart,
 				Enum.EasingDirection.Out
 			),
@@ -2898,7 +3077,7 @@ function Library:SetWatermarkVisible(state)
 		watermarkTween = TweenService:Create(
 			watermark,
 			TweenInfo.new(
-				0.11,
+				0.12,
 				Enum.EasingStyle.Quart,
 				Enum.EasingDirection.Out
 			),
@@ -2927,11 +3106,11 @@ local notificationRoot = New("Frame", {
 	Name = "Notifications",
 	Parent = gui,
 	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, -12, 0, -8),
-	Size = UDim2.fromOffset(380, 500),
+	Position = UDim2.new(1, -14, 0, 14),
+	Size = UDim2.fromOffset(390, 520),
 	BackgroundTransparency = 1,
 	BorderSizePixel = 0,
-	ZIndex = 100000,
+	ZIndex = 120000,
 })
 
 New("UIListLayout", {
@@ -2940,7 +3119,7 @@ New("UIListLayout", {
 	HorizontalAlignment = Enum.HorizontalAlignment.Right,
 	VerticalAlignment = Enum.VerticalAlignment.Top,
 	SortOrder = Enum.SortOrder.LayoutOrder,
-	Padding = UDim.new(0, 6),
+	Padding = UDim.new(0, 7),
 })
 
 local notificationOrder = 0
@@ -2955,27 +3134,41 @@ function Library:Notify(data, duration)
 	local lifetime = duration or 3
 
 	if type(data) == "table" then
-		titleText = data.Title or data.Header
+		titleText =
+			data.Title
+			or data.Header
+			or data.title
+			or data.header
+
 		bodyText =
 			data.Text
 			or data.Message
 			or data.Description
+			or data.text
+			or data.message
+			or data.description
 
 		lifetime = tonumber(
 			data.Duration
 			or data.Time
+			or data.duration
+			or data.time
 			or lifetime
 		) or lifetime
 	else
 		bodyText = data
 	end
 
-	if titleText ~= nil then
+	if titleText ~= nil and tostring(titleText) ~= "" then
 		titleText = tostring(titleText)
+	else
+		titleText = nil
 	end
 
-	if bodyText ~= nil then
+	if bodyText ~= nil and tostring(bodyText) ~= "" then
 		bodyText = tostring(bodyText)
+	else
+		bodyText = nil
 	end
 
 	if not titleText and not bodyText then
@@ -2985,103 +3178,218 @@ function Library:Notify(data, duration)
 	lifetime = math.clamp(lifetime, 0.5, 30)
 	notificationOrder += 1
 
-	local width = 260
-	local height = titleText and bodyText and 42 or 29
+	local titleSize = 14
+	local bodySize = 13
+	local maxTextWidth = 292
+	local minCardWidth = 175
+	local maxCardWidth = 330
+
+	local titleBounds = titleText
+		and TextService:GetTextSize(
+			titleText,
+			titleSize,
+			FONT,
+			Vector2.new(maxTextWidth, 1000)
+		)
+		or Vector2.zero
+
+	local bodyBounds = bodyText
+		and TextService:GetTextSize(
+			bodyText,
+			bodySize,
+			FONT,
+			Vector2.new(maxTextWidth, 1000)
+		)
+		or Vector2.zero
+
+	local cardWidth = math.clamp(
+		math.max(titleBounds.X, bodyBounds.X) + 42,
+		minCardWidth,
+		maxCardWidth
+	)
+
+	local textWidth = cardWidth - 42
+
+	local titleHeight = titleText
+		and math.max(
+			16,
+			TextService:GetTextSize(
+				titleText,
+				titleSize,
+				FONT,
+				Vector2.new(textWidth, 1000)
+			).Y
+		)
+		or 0
+
+	local bodyHeight = bodyText
+		and math.max(
+			15,
+			TextService:GetTextSize(
+				bodyText,
+				bodySize,
+				FONT,
+				Vector2.new(textWidth, 1000)
+			).Y
+		)
+		or 0
+
+	local gap = titleText and bodyText and 2 or 0
+	local cardHeight = math.max(
+		32,
+		7 + titleHeight + gap + bodyHeight + 8
+	)
 
 	local holder = New("Frame", {
 		Parent = notificationRoot,
-		Size = UDim2.new(1, 0, 0, height),
+		Size = UDim2.new(1, 0, 0, cardHeight),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		LayoutOrder = notificationOrder,
-		ZIndex = 100001,
+		ZIndex = 120001,
 	})
 
 	local card = New("CanvasGroup", {
 		Parent = holder,
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, 10, 0, 0),
-		Size = UDim2.fromOffset(width, height),
-
+		Position = UDim2.new(1, 24, 0, 0),
+		Size = UDim2.fromOffset(cardWidth, cardHeight),
 		BackgroundColor3 = C.Notification,
-		BackgroundTransparency = 0.03,
+		BackgroundTransparency = 0,
 		BorderSizePixel = 0,
-
 		GroupTransparency = 1,
 		ClipsDescendants = false,
-		ZIndex = 100002,
+		ZIndex = 120002,
 	})
 	Corner(card, 6)
-	Stroke(card, C.NotificationBorder, 0.14)
 
-	New("Frame", {
+	local cardStroke = Stroke(card, C.NotificationBorder, 0.08)
+	cardStroke.Thickness = 1
+
+	BindAccentGradient(New("UIGradient", {
+		Parent = cardStroke,
+		Rotation = 0,
+	}))
+
+	local topLine = New("Frame", {
 		Parent = card,
 		Position = UDim2.fromOffset(0, 0),
-		Size = UDim2.new(0, 2, 1, 0),
-		BackgroundColor3 = C.Accent,
+		Size = UDim2.new(1, 0, 0, 2),
+		BackgroundColor3 = Color3.new(1, 1, 1),
 		BorderSizePixel = 0,
-		ZIndex = 100006,
+		ZIndex = 120006,
 	})
+	Corner(topLine, 6)
 
-	local y = 4
+	local topGradient = BindAccentGradient(New("UIGradient", {
+		Parent = topLine,
+		Rotation = 0,
+	}))
+
+	local iconGlow = New("Frame", {
+		Parent = card,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromOffset(15, 16),
+		Size = UDim2.fromOffset(12, 12),
+		BackgroundColor3 = C.Accent,
+		BackgroundTransparency = 0.78,
+		BorderSizePixel = 0,
+		ZIndex = 120005,
+	})
+	Corner(iconGlow, 20)
+
+	local icon = New("Frame", {
+		Parent = card,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromOffset(15, 16),
+		Size = UDim2.fromOffset(5, 5),
+		BackgroundColor3 = C.AccentLight,
+		BorderSizePixel = 0,
+		ZIndex = 120007,
+	})
+	Corner(icon, 20)
+
+	local y = 6
 
 	if titleText then
-		local t = Label(
+		local titleLabel = Label(
 			card,
 			titleText,
-			UDim2.new(1, -18, 0, 16),
+			UDim2.fromOffset(textWidth, titleHeight),
 			C.TextStrong
 		)
-		t.Position = UDim2.fromOffset(9, y)
-		t.TextSize = 14
-		t.TextColor3 = C.TextStrong
-		t.ZIndex = 100010
-		y += 17
+		titleLabel.Position = UDim2.fromOffset(29, y)
+		titleLabel.TextSize = titleSize
+		titleLabel.TextWrapped = true
+		titleLabel.TextTruncate = Enum.TextTruncate.None
+		titleLabel.ZIndex = 120010
+
+		y += titleHeight + gap
 	end
 
 	if bodyText then
-		local b = Label(
+		local bodyLabel = Label(
 			card,
 			bodyText,
-			UDim2.new(1, -18, 0, 15),
+			UDim2.fromOffset(textWidth, bodyHeight),
 			C.Text
 		)
-		b.Position = UDim2.fromOffset(9, y)
-		b.TextSize = 13
-		b.TextColor3 = C.Text
-		b.ZIndex = 100010
+		bodyLabel.Position = UDim2.fromOffset(29, y)
+		bodyLabel.TextSize = bodySize
+		bodyLabel.TextWrapped = true
+		bodyLabel.TextTruncate = Enum.TextTruncate.None
+		bodyLabel.ZIndex = 120010
 	end
 
 	local progressBack = New("Frame", {
 		Parent = card,
 		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(0, 7, 1, -2),
-		Size = UDim2.new(1, -14, 0, 2),
-
+		Position = UDim2.new(0, 8, 1, -3),
+		Size = UDim2.new(1, -16, 0, 2),
 		BackgroundColor3 = C.ProgressBack,
-		BackgroundTransparency = 0.30,
+		BackgroundTransparency = 0.18,
 		BorderSizePixel = 0,
-
-		ZIndex = 100004,
+		ZIndex = 120004,
 	})
+	Corner(progressBack, 3)
 
 	local progress = New("Frame", {
 		Parent = progressBack,
-		Size = UDim2.new(1, 0, 0, 2),
-
-		BackgroundColor3 = C.Accent,
-		BackgroundTransparency = 0.05,
+		Size = UDim2.new(1, 0, 1, 0),
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BackgroundTransparency = 0,
 		BorderSizePixel = 0,
-
-		ZIndex = 100005,
+		ZIndex = 120005,
 	})
+	Corner(progress, 3)
+
+	BindAccentGradient(New("UIGradient", {
+		Parent = progress,
+		Rotation = 0,
+	}))
+
+	local gradientTween = TweenService:Create(
+		topGradient,
+		TweenInfo.new(
+			2.2,
+			Enum.EasingStyle.Linear,
+			Enum.EasingDirection.InOut,
+			-1,
+			true
+		),
+		{
+			Offset = Vector2.new(0.6, 0),
+		}
+	)
+	topGradient.Offset = Vector2.new(-0.6, 0)
+	gradientTween:Play()
 
 	Tween(card, {
 		GroupTransparency = 0,
 		Position = UDim2.new(1, 0, 0, 0),
-	}, 0.16)
+	}, 0.18)
 
-	TweenService:Create(
+	local progressTween = TweenService:Create(
 		progress,
 		TweenInfo.new(
 			lifetime,
@@ -3089,30 +3397,33 @@ function Library:Notify(data, duration)
 			Enum.EasingDirection.Out
 		),
 		{
-			Size = UDim2.new(0, 0, 0, 2),
+			Size = UDim2.new(0, 0, 1, 0),
 		}
-	):Play()
+	)
+	progressTween:Play()
 
 	task.delay(lifetime, function()
-		if not holder.Parent then
+		if unloaded or not holder.Parent or not card.Parent then
 			return
 		end
 
 		local hide = Tween(card, {
 			GroupTransparency = 1,
-			Position = UDim2.new(1, 10, 0, 0),
-		}, 0.13)
+			Position = UDim2.new(1, 22, 0, 0),
+		}, 0.14)
 
 		if hide then
 			hide.Completed:Connect(function()
-				if holder.Parent then
+				if holder and holder.Parent then
 					holder:Destroy()
 				end
 			end)
-		else
+		elseif holder.Parent then
 			holder:Destroy()
 		end
 	end)
+
+	return holder
 end
 
 local dragging = false
