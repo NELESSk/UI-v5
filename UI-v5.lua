@@ -369,7 +369,7 @@ pcall(function()
 end)
 
 local Library = {}
-Library.Version = "5.0.3-clean"
+Library.Version = "5.0.4-clean"
 RuntimeEnvironment.__UI_V5_RUNTIME = Library
 
 local main = New("CanvasGroup", {
@@ -3144,17 +3144,30 @@ local function MeasureWatermarkWidth()
 		tostring(watermarkTitle or ""),
 		13,
 		FONT,
-		Vector2.new(1000, 100)
+		Vector2.new(2000, 100)
 	)
 
-	return math.clamp(measured.X + 24, 150, 420)
+	return math.clamp(
+		math.ceil(measured.X) + 30,
+		110,
+		650
+	)
 end
 
-local function ResizeWatermark()
-	watermark.Size = UDim2.fromOffset(
-		MeasureWatermarkWidth(),
-		34
-	)
+local function ResizeWatermark(animated)
+	local target =
+		UDim2.fromOffset(
+			MeasureWatermarkWidth(),
+			34
+		)
+
+	if animated then
+		Tween(watermark, {
+			Size = target,
+		}, 0.14)
+	else
+		watermark.Size = target
+	end
 end
 
 local function GetWatermarkPosition(side)
@@ -3286,7 +3299,7 @@ function Library:SetWatermark(text, side)
 	end
 
 	watermarkText.Text = watermarkTitle
-	ResizeWatermark()
+	ResizeWatermark(true)
 
 	if watermarkSide == "Left"
 		or watermarkSide == "Right" then
@@ -3395,14 +3408,14 @@ function Library:SetWatermarkVisible(state)
 	end
 end
 
-ResizeWatermark()
+ResizeWatermark(false)
 
 local notificationRoot = New("Frame", {
 	Name = "Notifications",
 	Parent = gui,
 	AnchorPoint = Vector2.new(1, 0),
 	Position = UDim2.new(1, -14, 0, 14),
-	Size = UDim2.fromOffset(390, 500),
+	Size = UDim2.fromOffset(650, 500),
 	BackgroundTransparency = 1,
 	BorderSizePixel = 0,
 	ZIndex = 100000,
@@ -3479,7 +3492,46 @@ function Library:Notify(data, duration)
 	lifetime = math.clamp(lifetime, 0.5, 30)
 	notificationOrder += 1
 
-	local cardWidth = 340
+	local titleSize = 13
+	local bodySize = 13
+
+	local titleBounds =
+		titleText
+		and TextService:GetTextSize(
+			titleText,
+			titleSize,
+			FONT,
+			Vector2.new(2000, 100)
+		)
+		or Vector2.zero
+
+	local bodyBounds =
+		bodyText
+		and TextService:GetTextSize(
+			bodyText,
+			bodySize,
+			FONT,
+			Vector2.new(2000, 100)
+		)
+		or Vector2.zero
+
+	local separatorWidth =
+		(titleText and bodyText)
+		and 16
+		or 0
+
+	local wantedWidth =
+		math.ceil(titleBounds.X)
+		+ math.ceil(bodyBounds.X)
+		+ separatorWidth
+		+ 34
+
+	local cardWidth = math.clamp(
+		wantedWidth,
+		150,
+		620
+	)
+
 	local cardHeight = 24
 
 	local holder = New("Frame", {
@@ -3568,23 +3620,31 @@ function Library:Notify(data, duration)
 	local x = 12
 
 	if titleText then
+		local titleWidth = math.min(
+			math.ceil(titleBounds.X) + 2,
+			cardWidth - 24
+		)
+
 		local titleLabel = Label(
 			card,
 			titleText,
-			UDim2.fromOffset(92, cardHeight),
+			UDim2.fromOffset(
+				titleWidth,
+				cardHeight
+			),
 			C.NotificationTitle
 		)
 
 		titleLabel.Position =
 			UDim2.fromOffset(x, 0)
 
-		titleLabel.TextSize = 13
+		titleLabel.TextSize = titleSize
 		titleLabel.TextTruncate =
 			Enum.TextTruncate.AtEnd
 
 		titleLabel.ZIndex = 100010
 
-		x += 96
+		x += titleWidth
 	end
 
 	if titleText and bodyText then
@@ -3621,7 +3681,7 @@ function Library:Notify(data, duration)
 		bodyLabel.Position =
 			UDim2.fromOffset(x, 0)
 
-		bodyLabel.TextSize = 13
+		bodyLabel.TextSize = bodySize
 		bodyLabel.TextTruncate =
 			Enum.TextTruncate.AtEnd
 
