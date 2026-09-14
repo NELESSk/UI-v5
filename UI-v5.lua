@@ -58,6 +58,14 @@ local function Track(connection)
 	return connection
 end
 
+local function SafeCall(callback, ...)
+	if type(callback) ~= "function" or unloaded then
+		return
+	end
+
+	pcall(callback, ...)
+end
+
 local function DisconnectAll()
 	for i = #connections, 1, -1 do
 		local connection = connections[i]
@@ -77,15 +85,35 @@ local C = {
 	Panel2 = Color3.fromRGB(21, 21, 23),
 	PanelHover = Color3.fromRGB(25, 24, 27),
 
+	Control = Color3.fromRGB(13, 13, 14),
+	Control2 = Color3.fromRGB(14, 14, 16),
+	ControlHover = Color3.fromRGB(24, 23, 26),
+	ToggleOff = Color3.fromRGB(18, 18, 20),
+	Popup = Color3.fromRGB(20, 20, 22),
+	Selected = Color3.fromRGB(27, 24, 29),
+	Track = Color3.fromRGB(31, 31, 34),
+	Thumb = Color3.fromRGB(220, 171, 226),
+
 	Border = Color3.fromRGB(50, 50, 55),
 	BorderSoft = Color3.fromRGB(38, 38, 42),
+	Outline = Color3.fromRGB(72, 72, 78),
+	InnerOutline = Color3.fromRGB(35, 35, 39),
 
 	Text = Color3.fromRGB(210, 210, 214),
+	TextStrong = Color3.fromRGB(252, 252, 254),
 	Muted = Color3.fromRGB(135, 135, 142),
 	Dim = Color3.fromRGB(83, 83, 90),
 
 	Accent = Color3.fromRGB(178, 112, 187),
 	AccentDark = Color3.fromRGB(100, 60, 108),
+	AccentLight = Color3.fromRGB(226, 162, 235),
+
+	Notification = Color3.fromRGB(29, 27, 32),
+	NotificationBorder = Color3.fromRGB(104, 72, 112),
+	ProgressBack = Color3.fromRGB(39, 34, 42),
+
+	Watermark = Color3.fromRGB(17, 17, 19),
+	WatermarkBorder = Color3.fromRGB(64, 57, 68),
 }
 
 local FONT = Enum.Font.Code
@@ -101,11 +129,96 @@ local MOTION = {
 	WindowOut = 0.18,
 }
 
+local themeBindings = setmetatable({}, {__mode = "k"})
+local themeGradients = setmetatable({}, {__mode = "k"})
+
+local function SameColor(a, b)
+	return typeof(a) == "Color3"
+		and typeof(b) == "Color3"
+		and math.abs(a.R - b.R) < 0.0001
+		and math.abs(a.G - b.G) < 0.0001
+		and math.abs(a.B - b.B) < 0.0001
+end
+
+local function ThemeKeyForColor(color)
+	if typeof(color) ~= "Color3" then
+		return nil
+	end
+
+	for key, value in pairs(C) do
+		if typeof(value) == "Color3" and SameColor(color, value) then
+			return key
+		end
+	end
+
+	return nil
+end
+
+local function BindThemeProperty(obj, property, key)
+	if not obj or not property or not key then
+		return
+	end
+
+	local bindings = themeBindings[obj]
+	if not bindings then
+		bindings = {}
+		themeBindings[obj] = bindings
+	end
+
+	bindings[property] = key
+end
+
+local function BuildAccentSequence()
+	return ColorSequence.new({
+		ColorSequenceKeypoint.new(0.00, C.AccentDark),
+		ColorSequenceKeypoint.new(0.50, C.Accent),
+		ColorSequenceKeypoint.new(1.00, C.AccentLight),
+	})
+end
+
+local function BindAccentGradient(gradient)
+	if not gradient then
+		return gradient
+	end
+
+	themeGradients[gradient] = true
+	gradient.Color = BuildAccentSequence()
+	return gradient
+end
+
+local function RefreshTheme()
+	for obj, bindings in pairs(themeBindings) do
+		if obj and obj.Parent then
+			for property, key in pairs(bindings) do
+				local value = C[key]
+				if typeof(value) == "Color3" then
+					pcall(function()
+						obj[property] = value
+					end)
+				end
+			end
+		end
+	end
+
+	for gradient in pairs(themeGradients) do
+		if gradient and gradient.Parent then
+			gradient.Color = BuildAccentSequence()
+		end
+	end
+end
+
 local function New(className, props)
 	local obj = Instance.new(className)
 
 	for property, value in pairs(props or {}) do
 		obj[property] = value
+
+		if typeof(value) == "Color3" then
+			local key = ThemeKeyForColor(value)
+			if key then
+				BindThemeProperty(obj, property, key)
+			end
+		end
 	end
 
 	return obj
@@ -209,7 +322,7 @@ local main = New("CanvasGroup", {
 
 local outerOutline = New("UIStroke", {
 	Parent = main,
-	Color = Color3.fromRGB(72, 72, 78),
+	Color = C.Outline,
 	Thickness = 1,
 	Transparency = 0.12,
 	ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
@@ -226,7 +339,7 @@ local innerOutline = New("Frame", {
 
 New("UIStroke", {
 	Parent = innerOutline,
-	Color = Color3.fromRGB(35, 35, 39),
+	Color = C.InnerOutline,
 	Thickness = 1,
 	Transparency = 0.22,
 	ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
@@ -381,8 +494,8 @@ local function SetTab(name)
 
 		Tween(button, {
 			BackgroundColor3 = selected
-				and Color3.fromRGB(27, 24, 29)
-				or Color3.fromRGB(17, 17, 18),
+				and C.Selected
+				or C.Control2,
 			TextColor3 = selected and C.Text or C.Muted,
 		}, MOTION.Hover)
 	end
@@ -496,7 +609,7 @@ local function AddToggle(parent, y, text, default, callback)
 		Parent = row,
 		Position = UDim2.fromOffset(1, 4),
 		Size = UDim2.fromOffset(13, 13),
-		BackgroundColor3 = Color3.fromRGB(18, 18, 20),
+		BackgroundColor3 = C.ToggleOff,
 		BorderSizePixel = 0,
 	})
 	Corner(button, 2)
@@ -510,14 +623,9 @@ local function AddToggle(parent, y, text, default, callback)
 	})
 	Corner(gradientFill, 2)
 
-	New("UIGradient", {
+	BindAccentGradient(New("UIGradient", {
 		Parent = gradientFill,
-		Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0.00, Color3.fromRGB(91, 51, 101)),
-			ColorSequenceKeypoint.new(0.50, C.Accent),
-			ColorSequenceKeypoint.new(1.00, Color3.fromRGB(226, 162, 235)),
-		}),
-	})
+	}))
 
 	local name = Label(
 		row,
@@ -533,8 +641,8 @@ local function AddToggle(parent, y, text, default, callback)
 	local function Visual()
 		Tween(button, {
 			BackgroundColor3 = hovering
-				and Color3.fromRGB(24, 23, 26)
-				or Color3.fromRGB(18, 18, 20),
+				and C.ControlHover
+				or C.ToggleOff,
 		}, 0.11)
 
 		Tween(gradientFill, {
@@ -549,7 +657,7 @@ local function AddToggle(parent, y, text, default, callback)
 		Visual()
 
 		if fire and callback then
-			callback(state)
+			SafeCall(callback, state)
 		end
 	end
 
@@ -613,7 +721,7 @@ local function AddSlider(parent, y, text, minValue, maxValue, default, callback)
 		AnchorPoint = Vector2.new(0, 0.5),
 		Position = UDim2.new(0, 5, 0.5, 0),
 		Size = UDim2.new(1, -10, 0, 3),
-		BackgroundColor3 = Color3.fromRGB(31, 31, 34),
+		BackgroundColor3 = C.Track,
 		BorderSizePixel = 0,
 	})
 	Corner(track, 3)
@@ -627,21 +735,16 @@ local function AddSlider(parent, y, text, minValue, maxValue, default, callback)
 	})
 	Corner(fill, 3)
 
-	New("UIGradient", {
+	BindAccentGradient(New("UIGradient", {
 		Parent = fill,
-		Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0.00, Color3.fromRGB(92, 54, 101)),
-			ColorSequenceKeypoint.new(0.48, C.Accent),
-			ColorSequenceKeypoint.new(1.00, Color3.fromRGB(226, 162, 235)),
-		}),
-	})
+	}))
 
 	local thumb = New("Frame", {
 		Parent = hitbox,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new(0, 5, 0.5, 0),
 		Size = UDim2.fromOffset(3, 10),
-		BackgroundColor3 = Color3.fromRGB(220, 171, 226),
+		BackgroundColor3 = C.Thumb,
 		BorderSizePixel = 0,
 		ZIndex = 5,
 	})
@@ -693,7 +796,7 @@ local function AddSlider(parent, y, text, minValue, maxValue, default, callback)
 		valueLabel.Text = Format(value)
 
 		if fire and callback then
-			callback(value)
+			SafeCall(callback, value)
 		end
 	end
 
@@ -778,7 +881,7 @@ local function AddKeybind(parent, y, text, defaultKey, defaultMode, callback)
 		Position = UDim2.new(1, 0, 0, y),
 		Size = UDim2.fromOffset(62, 20),
 
-		BackgroundColor3 = Color3.fromRGB(13, 13, 14),
+		BackgroundColor3 = C.Control,
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
 
@@ -847,7 +950,7 @@ local function AddKeybind(parent, y, text, defaultKey, defaultMode, callback)
 
 	local function Emit(active)
 		if callback and not unloaded then
-			callback(active, currentMode, currentKey)
+			SafeCall(callback, active, currentMode, currentKey)
 		end
 	end
 
@@ -867,7 +970,7 @@ local function AddKeybind(parent, y, text, defaultKey, defaultMode, callback)
 
 			Tween(button, {
 				TextColor3 = C.Accent,
-				BackgroundColor3 = Color3.fromRGB(24, 20, 26),
+				BackgroundColor3 = C.Selected,
 			}, MOTION.Fast)
 
 			Tween(bindStroke, {
@@ -882,7 +985,7 @@ local function AddKeybind(parent, y, text, defaultKey, defaultMode, callback)
 
 			Tween(button, {
 				TextColor3 = C.Text,
-				BackgroundColor3 = Color3.fromRGB(13, 13, 14),
+				BackgroundColor3 = C.Control,
 			}, MOTION.Hover)
 
 			Tween(bindStroke, {
@@ -894,7 +997,7 @@ local function AddKeybind(parent, y, text, defaultKey, defaultMode, callback)
 
 			Tween(button, {
 				TextColor3 = C.Muted,
-				BackgroundColor3 = Color3.fromRGB(13, 13, 14),
+				BackgroundColor3 = C.Control,
 			}, MOTION.Hover)
 
 			Tween(bindStroke, {
@@ -1032,7 +1135,7 @@ local function AddKeybind(parent, y, text, defaultKey, defaultMode, callback)
 			Position = UDim2.fromOffset(x, py + 3),
 			Size = UDim2.fromOffset(popupWidth, popupHeight),
 
-			BackgroundColor3 = Color3.fromRGB(14, 14, 16),
+			BackgroundColor3 = C.Control2,
 			BorderSizePixel = 0,
 			GroupTransparency = 1,
 
@@ -1060,8 +1163,8 @@ local function AddKeybind(parent, y, text, defaultKey, defaultMode, callback)
 				Size = UDim2.new(1, 0, 0, rowHeight),
 
 				BackgroundColor3 = selected
-					and Color3.fromRGB(29, 22, 31)
-					or Color3.fromRGB(14, 14, 16),
+					and C.Selected
+					or C.Control2,
 
 				BorderSizePixel = 0,
 				AutoButtonColor = false,
@@ -1097,15 +1200,15 @@ local function AddKeybind(parent, y, text, defaultKey, defaultMode, callback)
 
 			local enter = option.MouseEnter:Connect(function()
 				Tween(option, {
-					BackgroundColor3 = Color3.fromRGB(27, 27, 30),
+					BackgroundColor3 = C.PanelHover,
 				}, 0.07)
 			end)
 
 			local leave = option.MouseLeave:Connect(function()
 				Tween(option, {
 					BackgroundColor3 = selected
-						and Color3.fromRGB(29, 22, 31)
-						or Color3.fromRGB(14, 14, 16),
+						and C.Selected
+						or C.Control2,
 				}, 0.07)
 			end)
 
@@ -1139,7 +1242,7 @@ local function AddKeybind(parent, y, text, defaultKey, defaultMode, callback)
 		capturingKeybind = true
 
 		Tween(button, {
-			BackgroundColor3 = Color3.fromRGB(26, 20, 28),
+			BackgroundColor3 = C.Selected,
 		}, 0.08)
 
 		RefreshButton()
@@ -1150,7 +1253,7 @@ local function AddKeybind(parent, y, text, defaultKey, defaultMode, callback)
 		capturingKeybind = false
 
 		Tween(button, {
-			BackgroundColor3 = Color3.fromRGB(13, 13, 14),
+			BackgroundColor3 = C.Control,
 		}, 0.08)
 
 		RefreshButton()
@@ -1159,7 +1262,7 @@ local function AddKeybind(parent, y, text, defaultKey, defaultMode, callback)
 	Track(button.MouseEnter:Connect(function()
 		if not listening then
 			Tween(button, {
-				BackgroundColor3 = Color3.fromRGB(20, 20, 22),
+				BackgroundColor3 = C.Popup,
 			}, 0.08)
 		end
 	end))
@@ -1167,7 +1270,7 @@ local function AddKeybind(parent, y, text, defaultKey, defaultMode, callback)
 	Track(button.MouseLeave:Connect(function()
 		if not listening then
 			Tween(button, {
-				BackgroundColor3 = Color3.fromRGB(13, 13, 14),
+				BackgroundColor3 = C.Control,
 			}, 0.08)
 		end
 	end))
@@ -1431,7 +1534,7 @@ local function AddColorPicker(parent, y, text, defaultColor, callback)
 		preview.BackgroundColor3 = color
 
 		if fire and callback and not unloaded then
-			callback(color)
+			SafeCall(callback, color)
 		end
 	end
 
@@ -1542,7 +1645,7 @@ local function AddColorPicker(parent, y, text, defaultColor, callback)
 			Position = UDim2.fromOffset(localX, localY),
 			Size = UDim2.fromOffset(W, H),
 
-			BackgroundColor3 = Color3.fromRGB(18, 18, 20),
+			BackgroundColor3 = C.Popup,
 			BorderSizePixel = 0,
 			GroupTransparency = 1,
 
@@ -1565,7 +1668,7 @@ local function AddColorPicker(parent, y, text, defaultColor, callback)
 			Position = UDim2.fromOffset(0, 0),
 			Size = UDim2.new(1, 0, 0, 18),
 
-			BackgroundColor3 = Color3.fromRGB(14, 14, 16),
+			BackgroundColor3 = C.Control2,
 			BorderSizePixel = 0,
 			AutoButtonColor = false,
 
@@ -1611,7 +1714,7 @@ local function AddColorPicker(parent, y, text, defaultColor, callback)
 				popupStartPosition = popup.Position
 
 				Tween(dragHeader, {
-					BackgroundColor3 = Color3.fromRGB(21, 21, 24),
+					BackgroundColor3 = C.Panel2,
 				}, 0.08)
 			end
 		end))
@@ -1636,7 +1739,7 @@ local function AddColorPicker(parent, y, text, defaultColor, callback)
 			Position = UDim2.fromOffset(34, 24),
 			Size = UDim2.fromOffset(135, 18),
 
-			BackgroundColor3 = Color3.fromRGB(12, 12, 14),
+			BackgroundColor3 = C.Top,
 			BorderSizePixel = 0,
 
 			ClearTextOnFocus = false,
@@ -1833,7 +1936,7 @@ local function AddColorPicker(parent, y, text, defaultColor, callback)
 			)
 
 			if fire and callback and not unloaded then
-				callback(currentColor)
+				SafeCall(callback, currentColor)
 			end
 		end
 
@@ -1945,7 +2048,7 @@ local function AddColorPicker(parent, y, text, defaultColor, callback)
 					draggingPopup = false
 
 					Tween(dragHeader, {
-						BackgroundColor3 = Color3.fromRGB(14, 14, 16),
+						BackgroundColor3 = C.Control2,
 					}, 0.09)
 				end
 
@@ -2097,7 +2200,7 @@ local function AddDropdown(parent, y, text, options, default, callback)
 		Position = UDim2.fromOffset(0, y + 20),
 		Size = UDim2.new(1, 0, 0, 19),
 
-		BackgroundColor3 = Color3.fromRGB(13, 13, 14),
+		BackgroundColor3 = C.Control,
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
 
@@ -2202,7 +2305,7 @@ local function AddDropdown(parent, y, text, options, default, callback)
 			Position = UDim2.fromOffset(x, yPos),
 			Size = UDim2.fromOffset(popupWidth, popupHeight),
 
-			BackgroundColor3 = Color3.fromRGB(14, 14, 16),
+			BackgroundColor3 = C.Control2,
 			BorderSizePixel = 0,
 			GroupTransparency = 1,
 
@@ -2236,8 +2339,8 @@ local function AddDropdown(parent, y, text, options, default, callback)
 				Size = UDim2.new(1, 0, 0, rowHeight),
 
 				BackgroundColor3 = selected
-					and Color3.fromRGB(29, 22, 31)
-					or Color3.fromRGB(14, 14, 16),
+					and C.Selected
+					or C.Control2,
 
 				BorderSizePixel = 0,
 				AutoButtonColor = false,
@@ -2262,7 +2365,7 @@ local function AddDropdown(parent, y, text, options, default, callback)
 				Close()
 
 				if callback then
-					callback(current)
+					SafeCall(callback, current)
 				end
 			end)
 
@@ -2287,7 +2390,7 @@ local function AddDropdown(parent, y, text, options, default, callback)
 				valueText.Text = tostring(value)
 
 				if callback then
-					callback(current)
+					SafeCall(callback, current)
 				end
 			end
 		end,
@@ -2301,7 +2404,7 @@ local function AddButton(parent, y, text, callback)
 		Parent = parent,
 		Position = UDim2.fromOffset(0, y),
 		Size = UDim2.new(1, 0, 0, 24),
-		BackgroundColor3 = Color3.fromRGB(20, 19, 22),
+		BackgroundColor3 = C.Panel2,
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
 		Text = tostring(text or "Button"),
@@ -2317,12 +2420,12 @@ local function AddButton(parent, y, text, callback)
 	end))
 
 	Track(button.MouseLeave:Connect(function()
-		Tween(button, {BackgroundColor3 = Color3.fromRGB(20, 19, 22)}, MOTION.Hover)
+		Tween(button, {BackgroundColor3 = C.Panel2}, MOTION.Hover)
 	end))
 
 	Track(button.MouseButton1Click:Connect(function()
 		if callback then
-			callback()
+			SafeCall(callback)
 		end
 	end))
 
@@ -2337,7 +2440,7 @@ local function AddInput(parent, y, text, default, callback)
 		Parent = parent,
 		Position = UDim2.fromOffset(0, y + 19),
 		Size = UDim2.new(1, 0, 0, 21),
-		BackgroundColor3 = Color3.fromRGB(13, 13, 14),
+		BackgroundColor3 = C.Control,
 		BorderSizePixel = 0,
 		ClearTextOnFocus = false,
 		Text = tostring(default or ""),
@@ -2361,7 +2464,7 @@ local function AddInput(parent, y, text, default, callback)
 	Track(box.FocusLost:Connect(function()
 		current = box.Text
 		if callback then
-			callback(current)
+			SafeCall(callback, current)
 		end
 	end))
 
@@ -2373,7 +2476,7 @@ local function AddInput(parent, y, text, default, callback)
 			current = tostring(value or "")
 			box.Text = current
 			if callback then
-				callback(current)
+				SafeCall(callback, current)
 			end
 		end,
 		Box = box,
@@ -2411,7 +2514,7 @@ function Library:CreateTab(name)
 		Parent = tabBar,
 		Size = UDim2.fromOffset(tabWidth, 25),
 
-		BackgroundColor3 = Color3.fromRGB(17, 17, 18),
+		BackgroundColor3 = C.Control2,
 		BorderSizePixel = 0,
 		AutoButtonColor = false,
 
@@ -2431,8 +2534,8 @@ function Library:CreateTab(name)
 	Track(button.MouseEnter:Connect(function()
 		if currentTab ~= name then
 			Tween(button, {
-				BackgroundColor3 = Color3.fromRGB(22, 21, 23),
-				TextColor3 = Color3.fromRGB(174, 174, 181),
+				BackgroundColor3 = C.Panel2,
+				TextColor3 = C.Text,
 			}, MOTION.Hover)
 		end
 	end))
@@ -2440,7 +2543,7 @@ function Library:CreateTab(name)
 	Track(button.MouseLeave:Connect(function()
 		if currentTab ~= name then
 			Tween(button, {
-				BackgroundColor3 = Color3.fromRGB(17, 17, 18),
+				BackgroundColor3 = C.Control2,
 				TextColor3 = C.Muted,
 			}, MOTION.Hover)
 		end
@@ -2474,7 +2577,7 @@ function Library:CreateTab(name)
 			BorderSizePixel = 0,
 
 			ScrollBarThickness = 2,
-			ScrollBarImageColor3 = Color3.fromRGB(92, 67, 98),
+			ScrollBarImageColor3 = C.AccentDark,
 
 			AutomaticCanvasSize = Enum.AutomaticSize.Y,
 			CanvasSize = UDim2.fromOffset(0, 0),
@@ -2580,18 +2683,77 @@ function Library:SetTitle(text)
 	title.Text = tostring(text or "")
 end
 
+function Library:SetTheme(theme)
+	if type(theme) ~= "table" then
+		return false
+	end
+
+	local accentChanged = false
+	local accentDarkProvided = false
+	local accentLightProvided = false
+
+	for key, value in pairs(theme) do
+		if C[key] ~= nil and typeof(value) == "Color3" then
+			C[key] = value
+
+			if key == "Accent" then
+				accentChanged = true
+			elseif key == "AccentDark" then
+				accentDarkProvided = true
+			elseif key == "AccentLight" then
+				accentLightProvided = true
+			end
+		end
+	end
+
+	if accentChanged then
+		if not accentDarkProvided then
+			C.AccentDark = C.Accent:Lerp(Color3.new(0, 0, 0), 0.46)
+		end
+
+		if not accentLightProvided then
+			C.AccentLight = C.Accent:Lerp(Color3.new(1, 1, 1), 0.34)
+		end
+	end
+
+	RefreshTheme()
+
+	tabIndicator.BackgroundColor3 = C.Accent
+	tabIndicatorGlow.BackgroundColor3 = C.Accent
+
+	return true
+end
+
+function Library:SetThemeColor(name, color)
+	if type(name) ~= "string" or typeof(color) ~= "Color3" or C[name] == nil then
+		return false
+	end
+
+	return self:SetTheme({
+		[name] = color,
+	})
+end
+
+function Library:GetTheme()
+	local result = {}
+
+	for key, value in pairs(C) do
+		if typeof(value) == "Color3" then
+			result[key] = value
+		end
+	end
+
+	return result
+end
+
 function Library:SetAccent(color)
 	if typeof(color) ~= "Color3" then
-		return
+		return false
 	end
 
-	C.Accent = color
-	tabIndicator.BackgroundColor3 = color
-	tabIndicatorGlow.BackgroundColor3 = color
-
-	if watermarkAccent and watermarkAccent.Parent then
-		watermarkAccent.BackgroundColor3 = color
-	end
+	return self:SetTheme({
+		Accent = color,
+	})
 end
 
 function Library:SelectTab(name)
@@ -2601,50 +2763,69 @@ end
 local watermarkSide = "Right"
 local watermarkTextValue = "UI-v5"
 local watermarkVisible = false
+local watermarkTween = nil
 
 local watermark = New("CanvasGroup", {
 	Name = "Watermark",
 	Parent = gui,
 	AnchorPoint = Vector2.new(1, 0),
 	Position = UDim2.new(1, -10, 0, 10),
-	Size = UDim2.fromOffset(180, 26),
-	BackgroundColor3 = Color3.fromRGB(20, 19, 22),
+	Size = UDim2.fromOffset(190, 28),
+	BackgroundColor3 = C.Watermark,
 	BorderSizePixel = 0,
 	GroupTransparency = 1,
 	Visible = false,
-	ZIndex = 2100,
+	ZIndex = 80000,
 })
-Corner(watermark, 4)
-Stroke(watermark, Color3.fromRGB(74, 62, 79), 0.16)
+Corner(watermark, 3)
+
+local watermarkStroke = Stroke(
+	watermark,
+	C.WatermarkBorder,
+	0.14
+)
+watermarkStroke.Thickness = 1
 
 local watermarkAccent = New("Frame", {
 	Parent = watermark,
 	Position = UDim2.fromOffset(0, 0),
-	Size = UDim2.new(0, 2, 1, 0),
+	Size = UDim2.new(1, 0, 0, 1),
 	BackgroundColor3 = C.Accent,
 	BorderSizePixel = 0,
-	ZIndex = 2101,
+	ZIndex = 80002,
 })
+
+local watermarkDot = New("Frame", {
+	Parent = watermark,
+	AnchorPoint = Vector2.new(0, 0.5),
+	Position = UDim2.new(0, 9, 0.5, 1),
+	Size = UDim2.fromOffset(4, 4),
+	BackgroundColor3 = C.Accent,
+	BorderSizePixel = 0,
+	ZIndex = 80003,
+})
+Corner(watermarkDot, 8)
 
 local watermarkLabel = Label(
 	watermark,
 	watermarkTextValue,
-	UDim2.new(1, -16, 1, 0),
-	Color3.fromRGB(235, 235, 239)
+	UDim2.new(1, -25, 1, 0),
+	C.Text
 )
-watermarkLabel.Position = UDim2.fromOffset(9, 0)
+watermarkLabel.Position = UDim2.fromOffset(19, 1)
 watermarkLabel.TextSize = 12
-watermarkLabel.ZIndex = 2102
+watermarkLabel.TextTruncate = Enum.TextTruncate.AtEnd
+watermarkLabel.ZIndex = 80004
 
 local function WatermarkWidth()
 	local bounds = TextService:GetTextSize(
 		watermarkTextValue,
 		12,
 		FONT,
-		Vector2.new(800, 50)
+		Vector2.new(900, 50)
 	)
 
-	return math.clamp(bounds.X + 20, 110, 360)
+	return math.clamp(bounds.X + 36, 125, 390)
 end
 
 local function WatermarkPosition()
@@ -2661,7 +2842,7 @@ function Library:SetWatermark(text, side)
 	if text ~= nil then
 		watermarkTextValue = tostring(text)
 		watermarkLabel.Text = watermarkTextValue
-		watermark.Size = UDim2.fromOffset(WatermarkWidth(), 26)
+		watermark.Size = UDim2.fromOffset(WatermarkWidth(), 28)
 	end
 
 	if side ~= nil then
@@ -2674,9 +2855,7 @@ function Library:SetWatermark(text, side)
 		end
 	end
 
-	Tween(watermark, {
-		Position = WatermarkPosition(),
-	}, MOTION.Hover)
+	watermark.Position = WatermarkPosition()
 end
 
 function Library:SetWatermarkPosition(side)
@@ -2685,30 +2864,62 @@ end
 
 function Library:SetWatermarkVisible(state)
 	state = state == true
+
+	if watermarkVisible == state then
+		return
+	end
+
 	watermarkVisible = state
+
+	if watermarkTween then
+		pcall(function()
+			watermarkTween:Cancel()
+		end)
+	end
 
 	if state then
 		watermark.Visible = true
-		watermark.GroupTransparency = 1
 		watermark.Position = WatermarkPosition()
 
-		Tween(watermark, {
-			GroupTransparency = 0,
-		}, MOTION.Control)
-	else
-		local hide = Tween(watermark, {
-			GroupTransparency = 1,
-		}, MOTION.Fast)
+		watermarkTween = TweenService:Create(
+			watermark,
+			TweenInfo.new(
+				0.14,
+				Enum.EasingStyle.Quart,
+				Enum.EasingDirection.Out
+			),
+			{
+				GroupTransparency = 0,
+			}
+		)
 
-		if hide then
-			hide.Completed:Connect(function()
-				if not watermarkVisible and watermark.Parent then
-					watermark.Visible = false
-				end
-			end)
-		else
-			watermark.Visible = false
-		end
+		watermarkTween:Play()
+	else
+		watermarkTween = TweenService:Create(
+			watermark,
+			TweenInfo.new(
+				0.11,
+				Enum.EasingStyle.Quart,
+				Enum.EasingDirection.Out
+			),
+			{
+				GroupTransparency = 1,
+			}
+		)
+
+		local thisTween = watermarkTween
+
+		thisTween.Completed:Connect(function(stateResult)
+			if watermarkTween == thisTween
+				and stateResult == Enum.PlaybackState.Completed
+				and not watermarkVisible
+				and watermark.Parent then
+
+				watermark.Visible = false
+			end
+		end)
+
+		thisTween:Play()
 	end
 end
 
@@ -2720,7 +2931,7 @@ local notificationRoot = New("Frame", {
 	Size = UDim2.fromOffset(380, 500),
 	BackgroundTransparency = 1,
 	BorderSizePixel = 0,
-	ZIndex = 1900,
+	ZIndex = 100000,
 })
 
 New("UIListLayout", {
@@ -2783,25 +2994,25 @@ function Library:Notify(data, duration)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		LayoutOrder = notificationOrder,
-		ZIndex = 1901,
+		ZIndex = 100001,
 	})
 
 	local card = New("CanvasGroup", {
 		Parent = holder,
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, 20, 0, 0),
+		Position = UDim2.new(1, 10, 0, 0),
 		Size = UDim2.fromOffset(width, height),
 
-		BackgroundColor3 = Color3.fromRGB(25, 23, 28),
+		BackgroundColor3 = C.Notification,
 		BackgroundTransparency = 0.03,
 		BorderSizePixel = 0,
 
 		GroupTransparency = 1,
 		ClipsDescendants = false,
-		ZIndex = 1902,
+		ZIndex = 100002,
 	})
 	Corner(card, 6)
-	Stroke(card, Color3.fromRGB(104, 72, 112), 0.14)
+	Stroke(card, C.NotificationBorder, 0.14)
 
 	New("Frame", {
 		Parent = card,
@@ -2809,7 +3020,7 @@ function Library:Notify(data, duration)
 		Size = UDim2.new(0, 2, 1, 0),
 		BackgroundColor3 = C.Accent,
 		BorderSizePixel = 0,
-		ZIndex = 1906,
+		ZIndex = 100006,
 	})
 
 	local y = 4
@@ -2819,10 +3030,12 @@ function Library:Notify(data, duration)
 			card,
 			titleText,
 			UDim2.new(1, -18, 0, 16),
-			Color3.fromRGB(252, 252, 254)
+			C.TextStrong
 		)
 		t.Position = UDim2.fromOffset(9, y)
 		t.TextSize = 14
+		t.TextColor3 = C.TextStrong
+		t.ZIndex = 100010
 		y += 17
 	end
 
@@ -2835,6 +3048,8 @@ function Library:Notify(data, duration)
 		)
 		b.Position = UDim2.fromOffset(9, y)
 		b.TextSize = 13
+		b.TextColor3 = C.Text
+		b.ZIndex = 100010
 	end
 
 	local progressBack = New("Frame", {
@@ -2843,11 +3058,11 @@ function Library:Notify(data, duration)
 		Position = UDim2.new(0, 7, 1, -2),
 		Size = UDim2.new(1, -14, 0, 2),
 
-		BackgroundColor3 = Color3.fromRGB(39, 34, 42),
+		BackgroundColor3 = C.ProgressBack,
 		BackgroundTransparency = 0.30,
 		BorderSizePixel = 0,
 
-		ZIndex = 1904,
+		ZIndex = 100004,
 	})
 
 	local progress = New("Frame", {
@@ -2858,7 +3073,7 @@ function Library:Notify(data, duration)
 		BackgroundTransparency = 0.05,
 		BorderSizePixel = 0,
 
-		ZIndex = 1905,
+		ZIndex = 100005,
 	})
 
 	Tween(card, {
@@ -2885,7 +3100,7 @@ function Library:Notify(data, duration)
 
 		local hide = Tween(card, {
 			GroupTransparency = 1,
-			Position = UDim2.new(1, 20, 0, 0),
+			Position = UDim2.new(1, 10, 0, 0),
 		}, 0.13)
 
 		if hide then
@@ -2937,7 +3152,7 @@ for i = 0, 2 do
 		),
 
 		Size = UDim2.fromOffset(8 + (i * 2), 1),
-		BackgroundColor3 = Color3.fromRGB(92, 92, 99),
+		BackgroundColor3 = C.Dim,
 		BackgroundTransparency = 0.22,
 		BorderSizePixel = 0,
 
@@ -3046,7 +3261,7 @@ Track(UserInputService.InputEnded:Connect(function(input)
 		end
 
 		Tween(outerOutline, {
-			Color = Color3.fromRGB(72, 72, 78),
+			Color = C.Outline,
 			Transparency = 0.12,
 		}, MOTION.Hover)
 	end
@@ -3054,107 +3269,59 @@ end))
 
 local opened = true
 local visibilityTween = nil
-local positionTween = nil
-local restingPosition = main.Position
+local visibilityToken = 0
 local toggleKey = Enum.KeyCode.RightShift
 
-local function OffsetPosition(position, yOffset)
-	return UDim2.new(
-		position.X.Scale,
-		position.X.Offset,
-		position.Y.Scale,
-		position.Y.Offset + yOffset
-	)
-end
-
 local function SetVisible(state)
+	state = state == true
+
 	if opened == state or unloaded then
 		return
 	end
 
 	opened = state
+	visibilityToken += 1
+
+	local token = visibilityToken
+
+	CloseTransientPopups()
 
 	if visibilityTween then
-		visibilityTween:Cancel()
-	end
-
-	if positionTween then
-		positionTween:Cancel()
-	end
-
-	if state then
-		main.Visible = true
-		main.GroupTransparency = 1
-		main.Position = OffsetPosition(restingPosition, 6)
-
-		visibilityTween = TweenService:Create(
-			main,
-			TweenInfo.new(
-				MOTION.WindowIn,
-				Enum.EasingStyle.Quart,
-				Enum.EasingDirection.Out
-			),
-			{
-				GroupTransparency = 0,
-			}
-		)
-
-		positionTween = TweenService:Create(
-			main,
-			TweenInfo.new(
-				MOTION.WindowIn,
-				Enum.EasingStyle.Quart,
-				Enum.EasingDirection.Out
-			),
-			{
-				Position = restingPosition,
-			}
-		)
-
-		visibilityTween:Play()
-		positionTween:Play()
-	else
-		CloseTransientPopups()
-
-		restingPosition = main.Position
-
-		visibilityTween = TweenService:Create(
-			main,
-			TweenInfo.new(
-				MOTION.WindowOut,
-				Enum.EasingStyle.Quart,
-				Enum.EasingDirection.InOut
-			),
-			{
-				GroupTransparency = 1,
-			}
-		)
-
-		positionTween = TweenService:Create(
-			main,
-			TweenInfo.new(
-				MOTION.WindowOut,
-				Enum.EasingStyle.Quart,
-				Enum.EasingDirection.InOut
-			),
-			{
-				Position = OffsetPosition(restingPosition, 6),
-			}
-		)
-
-		visibilityTween:Play()
-		positionTween:Play()
-
-		visibilityTween.Completed:Connect(function(playbackState)
-			if playbackState == Enum.PlaybackState.Completed
-				and not opened
-				and not unloaded then
-
-				main.Visible = false
-				main.Position = restingPosition
-			end
+		pcall(function()
+			visibilityTween:Cancel()
 		end)
 	end
+
+	main.Visible = true
+
+	visibilityTween = TweenService:Create(
+		main,
+		TweenInfo.new(
+			state and MOTION.WindowIn or MOTION.WindowOut,
+			Enum.EasingStyle.Quart,
+			state and Enum.EasingDirection.Out or Enum.EasingDirection.InOut
+		),
+		{
+			GroupTransparency = state and 0 or 1,
+		}
+	)
+
+	local thisTween = visibilityTween
+
+	thisTween.Completed:Connect(function(playbackState)
+		if token ~= visibilityToken or visibilityTween ~= thisTween then
+			return
+		end
+
+		if playbackState == Enum.PlaybackState.Completed
+			and not opened
+			and not unloaded then
+
+			main.Visible = false
+		end
+	end)
+
+	thisTween:Play()
 end
 
 Track(UserInputService.InputBegan:Connect(function(input)
@@ -3218,8 +3385,6 @@ end
 
 main.Visible = true
 main.GroupTransparency = 1
-restingPosition = main.Position
-main.Position = OffsetPosition(restingPosition, 6)
 
 TweenService:Create(
 	main,
@@ -3230,7 +3395,6 @@ TweenService:Create(
 	),
 	{
 		GroupTransparency = 0,
-		Position = restingPosition,
 	}
 ):Play()
 
