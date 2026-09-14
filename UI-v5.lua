@@ -3051,166 +3051,41 @@ end))
 local function SetWatermarkOrbitPosition(alpha)
 	local w = watermark.AbsoluteSize.X
 	local h = watermark.AbsoluteSize.Y
-	local r = math.min(5, w * 0.1, h * 0.3)
 
-	if w <= (r * 2) or h <= (r * 2) then
+	if w <= 0 or h <= 0 then
 		return
 	end
 
-	local top = w - (r * 2)
-	local right = h - (r * 2)
-	local bottom = top
-	local left = right
-	local arc = (math.pi * r) / 2
+	local perimeter = (w * 2) + (h * 2)
+	local distance = (alpha % 1) * perimeter
 
-	local perimeter =
-		top + arc
-		+ right + arc
-		+ bottom + arc
-		+ left + arc
-
-	if perimeter <= 0 then
-		return
-	end
-
-	local d = (alpha % 1) * perimeter
 	local x = 0
 	local y = 0
-	local rotation = 0
+	local angle = 0
 
-	if d <= top then
-		x = r + d
+	if distance <= w then
+		x = distance
 		y = 0
-		rotation = 0
+		angle = 0
+
+	elseif distance <= (w + h) then
+		x = w
+		y = distance - w
+		angle = 90
+
+	elseif distance <= ((w * 2) + h) then
+		x = w - (distance - (w + h))
+		y = h
+		angle = 180
 
 	else
-		d -= top
-
-		if d <= arc then
-			local t = d / arc
-			local theta =
-				(-math.pi / 2)
-				+ (t * math.pi / 2)
-
-			x =
-				(w - r)
-				+ (r * math.cos(theta))
-
-			y =
-				r
-				+ (r * math.sin(theta))
-
-			rotation =
-				math.deg(
-					theta + (math.pi / 2)
-				)
-
-		else
-			d -= arc
-
-			if d <= right then
-				x = w
-				y = r + d
-				rotation = 90
-
-			else
-				d -= right
-
-				if d <= arc then
-					local t = d / arc
-					local theta =
-						t * math.pi / 2
-
-					x =
-						(w - r)
-						+ (r * math.cos(theta))
-
-					y =
-						(h - r)
-						+ (r * math.sin(theta))
-
-					rotation =
-						math.deg(
-							theta + (math.pi / 2)
-						)
-
-				else
-					d -= arc
-
-					if d <= bottom then
-						x = (w - r) - d
-						y = h
-						rotation = 180
-
-					else
-						d -= bottom
-
-						if d <= arc then
-							local t = d / arc
-							local theta =
-								(math.pi / 2)
-								+ (t * math.pi / 2)
-
-							x =
-								r
-								+ (r * math.cos(theta))
-
-							y =
-								(h - r)
-								+ (r * math.sin(theta))
-
-							rotation =
-								math.deg(
-									theta + (math.pi / 2)
-								)
-
-						else
-							d -= arc
-
-							if d <= left then
-								x = 0
-								y = (h - r) - d
-								rotation = 270
-
-							else
-								d -= left
-
-								local t =
-									math.clamp(
-										d / arc,
-										0,
-										1
-									)
-
-								local theta =
-									math.pi
-									+ (t * math.pi / 2)
-
-								x =
-									r
-									+ (r * math.cos(theta))
-
-								y =
-									r
-									+ (r * math.sin(theta))
-
-								rotation =
-									math.deg(
-										theta + (math.pi / 2)
-									)
-							end
-						end
-					end
-				end
-			end
-		end
+		x = 0
+		y = h - (distance - ((w * 2) + h))
+		angle = 270
 	end
 
-	watermarkOrbitBeam.Position =
-		UDim2.fromOffset(x, y)
-
-	watermarkOrbitBeam.Rotation =
-		rotation
+	watermarkOrbitBeam.Position = UDim2.fromOffset(x, y)
+	watermarkOrbitBeam.Rotation = angle
 end
 
 Track(RunService.RenderStepped:Connect(function()
