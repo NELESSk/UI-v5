@@ -110,7 +110,19 @@ local C = {
 
 	Notification = Color3.fromRGB(29, 27, 32),
 	NotificationBorder = Color3.fromRGB(104, 72, 112),
+	NotificationTitle = Color3.fromRGB(246, 246, 249),
+	NotificationText = Color3.fromRGB(205, 205, 211),
+	NotificationSeparator = Color3.fromRGB(178, 112, 187),
+	NotificationRailGlow = Color3.fromRGB(178, 112, 187),
+
+	NotificationRailA = Color3.fromRGB(82, 48, 92),
+	NotificationRailB = Color3.fromRGB(178, 112, 187),
+	NotificationRailC = Color3.fromRGB(226, 162, 235),
+
 	ProgressBack = Color3.fromRGB(39, 34, 42),
+	NotificationProgressA = Color3.fromRGB(82, 48, 92),
+	NotificationProgressB = Color3.fromRGB(178, 112, 187),
+	NotificationProgressC = Color3.fromRGB(226, 162, 235),
 
 	Watermark = Color3.fromRGB(17, 17, 19),
 	WatermarkBorder = Color3.fromRGB(64, 57, 68),
@@ -131,6 +143,46 @@ local MOTION = {
 
 local themeBindings = setmetatable({}, {__mode = "k"})
 local themeGradients = setmetatable({}, {__mode = "k"})
+local notificationRailGradients = setmetatable({}, {__mode = "k"})
+local notificationProgressGradients = setmetatable({}, {__mode = "k"})
+
+local function BuildNotificationRailSequence()
+	return ColorSequence.new({
+		ColorSequenceKeypoint.new(0.00, C.NotificationRailA),
+		ColorSequenceKeypoint.new(0.50, C.NotificationRailB),
+		ColorSequenceKeypoint.new(1.00, C.NotificationRailC),
+	})
+end
+
+local function BuildNotificationProgressSequence()
+	return ColorSequence.new({
+		ColorSequenceKeypoint.new(0.00, C.NotificationProgressA),
+		ColorSequenceKeypoint.new(0.50, C.NotificationProgressB),
+		ColorSequenceKeypoint.new(1.00, C.NotificationProgressC),
+	})
+end
+
+local function BindNotificationRailGradient(gradient)
+	if not gradient then
+		return gradient
+	end
+
+	notificationRailGradients[gradient] = true
+	gradient.Color = BuildNotificationRailSequence()
+
+	return gradient
+end
+
+local function BindNotificationProgressGradient(gradient)
+	if not gradient then
+		return gradient
+	end
+
+	notificationProgressGradients[gradient] = true
+	gradient.Color = BuildNotificationProgressSequence()
+
+	return gradient
+end
 
 local function SameColor(a, b)
 	return typeof(a) == "Color3"
@@ -203,6 +255,18 @@ local function RefreshTheme()
 	for gradient in pairs(themeGradients) do
 		if gradient and gradient.Parent then
 			gradient.Color = BuildAccentSequence()
+		end
+	end
+
+	for gradient in pairs(notificationRailGradients) do
+		if gradient and gradient.Parent then
+			gradient.Color = BuildNotificationRailSequence()
+		end
+	end
+
+	for gradient in pairs(notificationProgressGradients) do
+		if gradient and gradient.Parent then
+			gradient.Color = BuildNotificationProgressSequence()
 		end
 	end
 end
@@ -305,7 +369,7 @@ pcall(function()
 end)
 
 local Library = {}
-Library.Version = "5.0.1-clean"
+Library.Version = "5.0.3-clean"
 RuntimeEnvironment.__UI_V5_RUNTIME = Library
 
 local main = New("CanvasGroup", {
@@ -2863,6 +2927,114 @@ function Library:SetAccent(color)
 	})
 end
 
+local LOG_THEME_MAP = {
+	Background = "Notification",
+	Log = "Notification",
+	Border = "NotificationBorder",
+
+	Title = "NotificationTitle",
+	TitleText = "NotificationTitle",
+
+	Text = "NotificationText",
+	Body = "NotificationText",
+	BodyText = "NotificationText",
+
+	Separator = "NotificationSeparator",
+
+	RailGlow = "NotificationRailGlow",
+	StripGlow = "NotificationRailGlow",
+
+	RailA = "NotificationRailA",
+	RailB = "NotificationRailB",
+	RailC = "NotificationRailC",
+
+	StripA = "NotificationRailA",
+	StripB = "NotificationRailB",
+	StripC = "NotificationRailC",
+
+	ProgressBack = "ProgressBack",
+
+	ProgressA = "NotificationProgressA",
+	ProgressB = "NotificationProgressB",
+	ProgressC = "NotificationProgressC",
+}
+
+function Library:SetLogTheme(theme)
+	if type(theme) ~= "table" then
+		return false
+	end
+
+	local update = {}
+
+	for key, value in pairs(theme) do
+		local themeKey =
+			LOG_THEME_MAP[key]
+			or (
+				C[key] ~= nil
+				and key
+				or nil
+			)
+
+		if themeKey
+			and C[themeKey] ~= nil
+			and typeof(value) == "Color3" then
+
+			update[themeKey] = value
+		end
+	end
+
+	if next(update) == nil then
+		return false
+	end
+
+	return self:SetTheme(update)
+end
+
+function Library:SetLogColor(name, color)
+	if type(name) ~= "string"
+		or typeof(color) ~= "Color3" then
+
+		return false
+	end
+
+	local themeKey =
+		LOG_THEME_MAP[name]
+		or (
+			C[name] ~= nil
+				and name
+				or nil
+		)
+
+	if not themeKey or C[themeKey] == nil then
+		return false
+	end
+
+	return self:SetTheme({
+		[themeKey] = color,
+	})
+end
+
+function Library:GetLogTheme()
+	return {
+		Background = C.Notification,
+		Border = C.NotificationBorder,
+
+		TitleText = C.NotificationTitle,
+		BodyText = C.NotificationText,
+		Separator = C.NotificationSeparator,
+
+		StripGlow = C.NotificationRailGlow,
+		StripA = C.NotificationRailA,
+		StripB = C.NotificationRailB,
+		StripC = C.NotificationRailC,
+
+		ProgressBack = C.ProgressBack,
+		ProgressA = C.NotificationProgressA,
+		ProgressB = C.NotificationProgressB,
+		ProgressC = C.NotificationProgressC,
+	}
+end
+
 function Library:SelectTab(name)
 	SetTab(tostring(name or ""))
 end
@@ -3230,7 +3402,7 @@ local notificationRoot = New("Frame", {
 	Parent = gui,
 	AnchorPoint = Vector2.new(1, 0),
 	Position = UDim2.new(1, -14, 0, 14),
-	Size = UDim2.fromOffset(540, 500),
+	Size = UDim2.fromOffset(390, 500),
 	BackgroundTransparency = 1,
 	BorderSizePixel = 0,
 	ZIndex = 100000,
@@ -3307,8 +3479,8 @@ function Library:Notify(data, duration)
 	lifetime = math.clamp(lifetime, 0.5, 30)
 	notificationOrder += 1
 
-	local cardWidth = 460
-	local cardHeight = 26
+	local cardWidth = 340
+	local cardHeight = 24
 
 	local holder = New("Frame", {
 		Parent = notificationRoot,
@@ -3344,6 +3516,17 @@ function Library:Notify(data, duration)
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 	})
 
+	local sideGlow = New("Frame", {
+		Parent = card,
+		Position = UDim2.fromOffset(-2, 1),
+		Size = UDim2.new(0, 8, 1, -2),
+		BackgroundColor3 = C.NotificationRailGlow,
+		BackgroundTransparency = 0.80,
+		BorderSizePixel = 0,
+		ZIndex = 100006,
+	})
+	Corner(sideGlow, 5)
+
 	local sideRail = New("Frame", {
 		Parent = card,
 		Position = UDim2.fromOffset(0, 1),
@@ -3354,14 +3537,9 @@ function Library:Notify(data, duration)
 	})
 	Corner(sideRail, 4)
 
-	local sideGradient = New("UIGradient", {
+	local sideGradient = BindNotificationRailGradient(New("UIGradient", {
 		Parent = sideRail,
 		Rotation = 90,
-		Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0.00, Color3.fromRGB(82, 48, 92)),
-			ColorSequenceKeypoint.new(0.50, C.Accent),
-			ColorSequenceKeypoint.new(1.00, Color3.fromRGB(226, 162, 235)),
-		}),
 		Transparency = NumberSequence.new({
 			NumberSequenceKeypoint.new(0.00, 0.55),
 			NumberSequenceKeypoint.new(0.30, 0.08),
@@ -3370,7 +3548,7 @@ function Library:Notify(data, duration)
 			NumberSequenceKeypoint.new(1.00, 0.55),
 		}),
 		Offset = Vector2.new(0, -0.55),
-	})
+	}))
 
 	local sideTween = TweenService:Create(
 		sideGradient,
@@ -3393,8 +3571,8 @@ function Library:Notify(data, duration)
 		local titleLabel = Label(
 			card,
 			titleText,
-			UDim2.fromOffset(120, cardHeight),
-			C.TextStrong
+			UDim2.fromOffset(92, cardHeight),
+			C.NotificationTitle
 		)
 
 		titleLabel.Position =
@@ -3406,7 +3584,7 @@ function Library:Notify(data, duration)
 
 		titleLabel.ZIndex = 100010
 
-		x += 124
+		x += 96
 	end
 
 	if titleText and bodyText then
@@ -3414,7 +3592,7 @@ function Library:Notify(data, duration)
 			card,
 			"•",
 			UDim2.fromOffset(14, cardHeight),
-			C.Accent
+			C.NotificationSeparator
 		)
 
 		separator.Position =
@@ -3437,7 +3615,7 @@ function Library:Notify(data, duration)
 				cardWidth - x - 10,
 				cardHeight
 			),
-			C.Text
+			C.NotificationText
 		)
 
 		bodyLabel.Position =
@@ -3450,15 +3628,28 @@ function Library:Notify(data, duration)
 		bodyLabel.ZIndex = 100010
 	end
 
-	local progress = New("Frame", {
+	local progressBack = New("Frame", {
 		Parent = card,
 		AnchorPoint = Vector2.new(0, 1),
 		Position = UDim2.new(0, 8, 1, -1),
 		Size = UDim2.new(1, -16, 0, 1),
-		BackgroundColor3 = C.Accent,
+		BackgroundColor3 = C.ProgressBack,
+		BorderSizePixel = 0,
+		ZIndex = 100005,
+	})
+
+	local progress = New("Frame", {
+		Parent = progressBack,
+		Size = UDim2.new(1, 0, 1, 0),
+		BackgroundColor3 = Color3.new(1, 1, 1),
 		BorderSizePixel = 0,
 		ZIndex = 100006,
 	})
+
+	BindNotificationProgressGradient(New("UIGradient", {
+		Parent = progress,
+		Rotation = 0,
+	}))
 
 	Tween(card, {
 		GroupTransparency = 0,
