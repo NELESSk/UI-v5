@@ -369,7 +369,7 @@ pcall(function()
 end)
 
 local Library = {}
-Library.Version = "5.0.7-clean"
+Library.Version = "5.0.8-clean"
 RuntimeEnvironment.__UI_V5_RUNTIME = Library
 
 local cursorGui = New("ScreenGui", {
@@ -393,9 +393,9 @@ local cursorLightColor = C.AccentLight
 local cursorRoot = New("Frame", {
 	Name = "CustomCursor",
 	Parent = cursorGui,
-	AnchorPoint = Vector2.new(0.5, 0),
+	AnchorPoint = Vector2.new(0.5, 0.5),
 	Position = UDim2.fromOffset(0, 0),
-	Size = UDim2.fromOffset(28, 42),
+	Size = UDim2.fromOffset(28, 28),
 	BackgroundTransparency = 1,
 	BorderSizePixel = 0,
 	Visible = true,
@@ -407,102 +407,126 @@ local cursorScale = New("UIScale", {
 	Scale = 1,
 })
 
-local cursorShaft = New("Frame", {
+local cursorGlow = New("Frame", {
 	Parent = cursorRoot,
-	Position = UDim2.fromOffset(9, 5),
-	Size = UDim2.fromOffset(10, 25),
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.fromOffset(18, 18),
+	BackgroundColor3 = cursorColor,
+	BackgroundTransparency = 0.82,
+	BorderSizePixel = 0,
+	Rotation = 45,
+	ZIndex = 1000000,
+})
+Corner(cursorGlow, 4)
+
+local cursorDiamond = New("Frame", {
+	Parent = cursorRoot,
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.fromOffset(8, 8),
 	BackgroundColor3 = cursorColor,
 	BorderSizePixel = 0,
-	ZIndex = 1000001,
+	Rotation = 45,
+	ZIndex = 1000003,
 })
-Corner(cursorShaft, 6)
+Corner(cursorDiamond, 2)
 
-local cursorShaftStroke = New("UIStroke", {
-	Parent = cursorShaft,
+local cursorDiamondStroke = New("UIStroke", {
+	Parent = cursorDiamond,
 	Color = cursorLightColor,
 	Thickness = 1,
-	Transparency = 0.18,
+	Transparency = 0.05,
 	ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 })
 
-local cursorShaftGradient = New("UIGradient", {
-	Parent = cursorShaft,
-	Rotation = 90,
+local cursorDiamondGradient = New("UIGradient", {
+	Parent = cursorDiamond,
+	Rotation = 45,
 	Color = ColorSequence.new({
 		ColorSequenceKeypoint.new(0, cursorLightColor),
-		ColorSequenceKeypoint.new(0.48, cursorColor),
+		ColorSequenceKeypoint.new(0.5, cursorColor),
 		ColorSequenceKeypoint.new(1, C.AccentDark),
 	}),
 })
 
-local cursorTip = New("Frame", {
+local cursorTop = New("Frame", {
 	Parent = cursorRoot,
-	Position = UDim2.fromOffset(8, 0),
-	Size = UDim2.fromOffset(12, 11),
+	AnchorPoint = Vector2.new(0.5, 1),
+	Position = UDim2.new(0.5, 0, 0.5, -6),
+	Size = UDim2.fromOffset(2, 7),
 	BackgroundColor3 = cursorLightColor,
 	BorderSizePixel = 0,
 	ZIndex = 1000002,
 })
-Corner(cursorTip, 7)
+Corner(cursorTop, 2)
 
-local cursorTipStroke = New("UIStroke", {
-	Parent = cursorTip,
-	Color = cursorLightColor,
-	Thickness = 1,
-	Transparency = 0.12,
-	ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+local cursorBottom = New("Frame", {
+	Parent = cursorRoot,
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0.5, 6),
+	Size = UDim2.fromOffset(2, 7),
+	BackgroundColor3 = cursorLightColor,
+	BorderSizePixel = 0,
+	ZIndex = 1000002,
 })
+Corner(cursorBottom, 2)
 
 local cursorLeft = New("Frame", {
 	Parent = cursorRoot,
-	Position = UDim2.fromOffset(2, 27),
-	Size = UDim2.fromOffset(13, 13),
-	BackgroundColor3 = cursorColor,
+	AnchorPoint = Vector2.new(1, 0.5),
+	Position = UDim2.new(0.5, -6, 0.5, 0),
+	Size = UDim2.fromOffset(7, 2),
+	BackgroundColor3 = cursorLightColor,
 	BorderSizePixel = 0,
-	ZIndex = 1000001,
+	ZIndex = 1000002,
 })
-Corner(cursorLeft, 7)
+Corner(cursorLeft, 2)
 
 local cursorRight = New("Frame", {
 	Parent = cursorRoot,
-	Position = UDim2.fromOffset(13, 27),
-	Size = UDim2.fromOffset(13, 13),
-	BackgroundColor3 = cursorColor,
+	AnchorPoint = Vector2.new(0, 0.5),
+	Position = UDim2.new(0.5, 6, 0.5, 0),
+	Size = UDim2.fromOffset(7, 2),
+	BackgroundColor3 = cursorLightColor,
+	BorderSizePixel = 0,
+	ZIndex = 1000002,
+})
+Corner(cursorRight, 2)
+
+local cursorRing = New("Frame", {
+	Parent = cursorRoot,
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.fromOffset(24, 24),
+	BackgroundTransparency = 1,
 	BorderSizePixel = 0,
 	ZIndex = 1000001,
 })
-Corner(cursorRight, 7)
+Corner(cursorRing, 12)
 
-local cursorLeftStroke = New("UIStroke", {
-	Parent = cursorLeft,
-	Color = cursorLightColor,
+local cursorRingStroke = New("UIStroke", {
+	Parent = cursorRing,
+	Color = cursorColor,
 	Thickness = 1,
-	Transparency = 0.22,
-	ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-})
-
-local cursorRightStroke = New("UIStroke", {
-	Parent = cursorRight,
-	Color = cursorLightColor,
-	Thickness = 1,
-	Transparency = 0.22,
+	Transparency = 0.72,
 	ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 })
 
 local function RefreshCustomCursorColors()
-	cursorShaft.BackgroundColor3 = cursorColor
-	cursorTip.BackgroundColor3 = cursorLightColor
-	cursorLeft.BackgroundColor3 = cursorColor
-	cursorRight.BackgroundColor3 = cursorColor
+	cursorGlow.BackgroundColor3 = cursorColor
+	cursorDiamond.BackgroundColor3 = cursorColor
+	cursorDiamondStroke.Color = cursorLightColor
 
-	cursorShaftStroke.Color = cursorLightColor
-	cursorTipStroke.Color = cursorLightColor
-	cursorLeftStroke.Color = cursorLightColor
-	cursorRightStroke.Color = cursorLightColor
+	cursorTop.BackgroundColor3 = cursorLightColor
+	cursorBottom.BackgroundColor3 = cursorLightColor
+	cursorLeft.BackgroundColor3 = cursorLightColor
+	cursorRight.BackgroundColor3 = cursorLightColor
+	cursorRingStroke.Color = cursorColor
 
-	cursorShaftGradient.Color = ColorSequence.new({
+	cursorDiamondGradient.Color = ColorSequence.new({
 		ColorSequenceKeypoint.new(0, cursorLightColor),
-		ColorSequenceKeypoint.new(0.48, cursorColor),
+		ColorSequenceKeypoint.new(0.5, cursorColor),
 		ColorSequenceKeypoint.new(1, C.AccentDark),
 	})
 end
@@ -542,8 +566,16 @@ Track(UserInputService.InputBegan:Connect(function(input)
 
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
 		Tween(cursorScale, {
-			Scale = 0.88,
-		}, 0.06)
+			Scale = 0.82,
+		}, 0.055)
+
+		Tween(cursorRingStroke, {
+			Transparency = 0.22,
+		}, 0.055)
+
+		Tween(cursorGlow, {
+			BackgroundTransparency = 0.62,
+		}, 0.055)
 	end
 end))
 
@@ -551,7 +583,15 @@ Track(UserInputService.InputEnded:Connect(function(input)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
 		Tween(cursorScale, {
 			Scale = 1,
-		}, 0.08)
+		}, 0.09)
+
+		Tween(cursorRingStroke, {
+			Transparency = 0.72,
+		}, 0.09)
+
+		Tween(cursorGlow, {
+			BackgroundTransparency = 0.82,
+		}, 0.09)
 	end
 end))
 
