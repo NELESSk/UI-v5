@@ -20,19 +20,39 @@ end
 local RuntimeEnvironment = (getgenv and getgenv()) or _G
 local existingRuntime = RuntimeEnvironment.__UI_V5_RUNTIME
 
-if existingRuntime then
-	if existingRuntime == true then
-		return nil
+if type(existingRuntime) == "table"
+	and type(existingRuntime.Unload) == "function" then
+
+	pcall(function()
+		existingRuntime:Unload()
+	end)
+end
+
+RuntimeEnvironment.__UI_V5_RUNTIME = nil
+
+pcall(function()
+	UserInputService.MouseIconEnabled = true
+end)
+
+local function RemoveStaleGui(parent, name)
+	if not parent then
+		return
 	end
 
-	return existingRuntime
+	local old = parent:FindFirstChild(name)
+
+	if old then
+		pcall(function()
+			old:Destroy()
+		end)
+	end
 end
 
-if guiParent:FindFirstChild("UI-v5")
-	or playerGui:FindFirstChild("UI-v5") then
+RemoveStaleGui(guiParent, "UI-v5-Cursor")
+RemoveStaleGui(playerGui, "UI-v5-Cursor")
 
-	return nil
-end
+RemoveStaleGui(guiParent, "UI-v5")
+RemoveStaleGui(playerGui, "UI-v5")
 
 RuntimeEnvironment.__UI_V5_RUNTIME = true
 
@@ -369,7 +389,7 @@ pcall(function()
 end)
 
 local Library = {}
-Library.Version = "5.0.6-clean"
+Library.Version = "5.0.11-clean"
 RuntimeEnvironment.__UI_V5_RUNTIME = Library
 
 local main = New("CanvasGroup", {
@@ -679,6 +699,19 @@ local function AddToggle(parent, y, text, default, callback)
 	})
 	Corner(button, 2)
 
+	local toggleOutline = New("UIStroke", {
+		Parent = button,
+		Color = C.Outline,
+		Thickness = 1,
+		Transparency = 0.08,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+	})
+	BindThemeProperty(
+		toggleOutline,
+		"Color",
+		"Outline"
+	)
+
 	local gradientFill = New("Frame", {
 		Parent = button,
 		Size = UDim2.fromScale(1, 1),
@@ -713,6 +746,15 @@ local function AddToggle(parent, y, text, default, callback)
 		Tween(gradientFill, {
 			BackgroundTransparency = state
 				and (hovering and 0.04 or 0)
+				or 1,
+		}, 0.11)
+
+		Tween(toggleOutline, {
+			Transparency = state
+				and 0
+				or (hovering and 0.02 or 0.08),
+			Thickness = state
+				and 1.15
 				or 1,
 		}, 0.11)
 	end
@@ -1174,21 +1216,29 @@ local function AddKeybind(parent, y, text, defaultKey, defaultMode, callback)
 			local old = popup
 			popup = nil
 
-			Tween(old, {
+			local hide = Tween(old, {
 				GroupTransparency = 1,
-				Position = UDim2.new(
-					old.Position.X.Scale,
-					old.Position.X.Offset,
-					old.Position.Y.Scale,
-					old.Position.Y.Offset - 3
-				),
 			}, 0.09)
 
-			task.delay(0.10, function()
+			local removed = false
+
+			local function RemovePopup()
+				if removed then
+					return
+				end
+
+				removed = true
+
 				if old and old.Parent then
 					old:Destroy()
 				end
-			end)
+			end
+
+			if hide then
+				hide.Completed:Connect(RemovePopup)
+			end
+
+			task.delay(0.12, RemovePopup)
 		end
 	end
 
@@ -1268,7 +1318,7 @@ local function AddKeybind(parent, y, text, defaultKey, defaultMode, callback)
 
 		popup = New("CanvasGroup", {
 			Parent = main,
-			Position = UDim2.fromOffset(x, py + 3),
+			Position = UDim2.fromOffset(x, py),
 			Size = UDim2.fromOffset(popupWidth, popupHeight),
 
 			BackgroundColor3 = C.Control2,
@@ -1287,7 +1337,6 @@ local function AddKeybind(parent, y, text, defaultKey, defaultMode, callback)
 
 		Tween(popup, {
 			GroupTransparency = 0,
-			Position = UDim2.fromOffset(x, py),
 		}, 0.10)
 
 		for i, mode in ipairs(modes) do
@@ -3947,6 +3996,30 @@ local visibilityTween = nil
 local visibilityToken = 0
 local toggleKey = Enum.KeyCode.RightShift
 
+local function NormalizePagesForWindowTween()
+	for tabName, page in pairs(pages) do
+		local pageTween = tabPageTweens[tabName]
+
+		if pageTween then
+			pcall(function()
+				pageTween:Cancel()
+			end)
+
+			tabPageTweens[tabName] = nil
+		end
+
+		if tabName == currentTab then
+			page.Visible = true
+			page.GroupTransparency = 0
+			page.Position = UDim2.fromOffset(0, 0)
+		else
+			page.Visible = false
+			page.GroupTransparency = 1
+			page.Position = UDim2.fromOffset(0, 0)
+		end
+	end
+end
+
 local function SetVisible(state)
 	state = state == true
 
@@ -3959,6 +4032,7 @@ local function SetVisible(state)
 
 	local token = visibilityToken
 
+	NormalizePagesForWindowTween()
 	CloseTransientPopups()
 
 	if visibilityTween then
@@ -4057,6 +4131,13 @@ function Library:Unload()
 	CloseTransientPopups()
 
 	pcall(function()
+		UserInputService.MouseIconEnabled = true
+	end)
+
+	RemoveStaleGui(guiParent, "UI-v5-Cursor")
+	RemoveStaleGui(playerGui, "UI-v5-Cursor")
+
+	pcall(function()
 		watermarkGradientTween:Cancel()
 	end)
 
@@ -4070,6 +4151,8 @@ function Library:Unload()
 		RuntimeEnvironment.__UI_V5_RUNTIME = nil
 	end
 end
+
+NormalizePagesForWindowTween()
 
 main.Visible = true
 main.GroupTransparency = 1
