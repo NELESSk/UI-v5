@@ -389,7 +389,7 @@ pcall(function()
 end)
 
 local Library = {}
-Library.Version = "5.0.11-clean"
+Library.Version = "5.0.12-clean"
 RuntimeEnvironment.__UI_V5_RUNTIME = Library
 
 local main = New("CanvasGroup", {
@@ -2439,11 +2439,12 @@ local function AddDropdown(parent, y, text, options, default, callback)
 	local valueText = Label(
 		button,
 		tostring(current or ""),
-		UDim2.new(1, -24, 1, 0),
-		C.Text
+		UDim2.new(1, -30, 1, 0),
+		C.TextStrong
 	)
-	valueText.Position = UDim2.fromOffset(6, 0)
+	valueText.Position = UDim2.fromOffset(7, 0)
 	valueText.TextSize = 12
+	valueText.ZIndex = 72
 
 	local arrow = Label(
 		button,
@@ -2452,8 +2453,9 @@ local function AddDropdown(parent, y, text, options, default, callback)
 		C.Muted,
 		Enum.TextXAlignment.Center
 	)
-	arrow.Position = UDim2.new(1, -19, 0, 0)
+	arrow.Position = UDim2.new(1, -20, 0, 0)
 	arrow.TextSize = 14
+	arrow.ZIndex = 72
 
 	local popup = nil
 	local opened = false
@@ -2571,13 +2573,32 @@ local function AddDropdown(parent, y, text, options, default, callback)
 				BorderSizePixel = 0,
 				AutoButtonColor = false,
 
-				Text = tostring(option),
-				TextColor3 = selected and C.Accent or C.Text,
-				TextSize = 12,
-				Font = FONT,
-
+				Text = "",
 				ZIndex = 461,
 			})
+
+			local optionText = Label(
+				opt,
+				tostring(option),
+				UDim2.new(1, -28, 1, 0),
+				selected and C.AccentLight or C.Text
+			)
+			optionText.Position = UDim2.fromOffset(7, 0)
+			optionText.TextSize = 12
+			optionText.ZIndex = 462
+
+			if selected then
+				local selectedMark = Label(
+					opt,
+					"•",
+					UDim2.fromOffset(18, rowHeight),
+					C.AccentLight,
+					Enum.TextXAlignment.Center
+				)
+				selectedMark.Position = UDim2.new(1, -22, 0, 0)
+				selectedMark.TextSize = 16
+				selectedMark.ZIndex = 462
+			end
 
 			local enter = opt.MouseEnter:Connect(function()
 				Tween(opt, {
@@ -2588,6 +2609,7 @@ local function AddDropdown(parent, y, text, options, default, callback)
 			local click = opt.MouseButton1Click:Connect(function()
 				current = option
 				valueText.Text = tostring(option)
+				valueText.TextColor3 = C.TextStrong
 				Close()
 
 				if callback then
@@ -2614,6 +2636,7 @@ local function AddDropdown(parent, y, text, options, default, callback)
 			if table.find(options, value) then
 				current = value
 				valueText.Text = tostring(value)
+				valueText.TextColor3 = C.TextStrong
 
 				if callback then
 					SafeCall(callback, current)
